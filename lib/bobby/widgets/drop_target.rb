@@ -20,9 +20,9 @@ module Bobby
     #
     # Upstream hands the list straight to gio::Application::open. ruby-gnome
     # cannot marshal an array of GFile into a C array, so Gio::Application#open
-    # raises NotImplementedError ("TODO: in Ruby -> GIArgument(array/C)
-    # [interface(interface)](GFile)"). Application#open_files is the body of
-    # the handler GIO itself calls for the "open" signal, so calling it
+    # raises NotImplementedError, naming GIArgument(array/C) over GFile as the
+    # conversion it has no marshaller for. Application#open_files is the body
+    # of the handler GIO itself calls for the "open" signal, so calling it
     # directly reaches the same place without the unmarshallable argument.
     #
     # The handler answers true: the drop is always accepted, as upstream's is,

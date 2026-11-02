@@ -745,31 +745,82 @@ GtkDriver.drive(APP, shots: SHOTS) do |d, app|
     end
   end
 
-  d.step("the cache's list model carries one RowObject per row") do
+  d.step("the cache is a list model that carries one RowObject per row") do
     Bobby::Sqlite::Database.from_file(gfile(MAIN_DB)).then do |database|
       database.tables.find { |table| table.name.to_s == "people" }.then do |people|
         Bobby::Sqlite::Cache.new(database, people).then do |cache|
           d.check("it counts the rows") { cache.row_count == 3 }
-          d.check("the model is a Gio::ListModel") { cache.model.is_a?(Gio::ListModel) }
-          d.check("with one item per row") { cache.model.n_items == 3 }
+          d.check("the cache is itself the Gio::ListModel") { cache.is_a?(Gio::ListModel) }
+          d.check("with one item per row") { cache.n_items == 3 }
+          d.check("whose item type is the RowObject") do
+            cache.item_type == Bobby::Sqlite::RowObject.gtype
+          end
           d.check("each item is a RowObject holding a Row") do
-            cache.model.get_item(0).then do |item|
+            cache.get_item(0).then do |item|
               item.is_a?(Bobby::Sqlite::RowObject) && item.row.is_a?(Bobby::Sqlite::Row)
             end
           end
-          d.check("past the end is nil, not a raise") { cache.model.get_item(99).nil? }
-          d.check("the model's items are the RowObjects the cache holds") do
-            (0...cache.model.n_items).all? do |index|
-              cache.model.get_item(index).equal?(cache.row_objects[index])
+          d.check("past the end is nil, not a raise") { cache.get_item(99).nil? }
+          d.check("the items are the RowObjects the cache has cached") do
+            (0...cache.n_items).all? do |index|
+              cache.get_item(index).equal?(cache.cached_rows[index])
             end
+          end
+          d.check("and the same index twice is the same object, not a refetch") do
+            cache.get_item(1).equal?(cache.get_item(1))
           end
           # The bug this is here for: the Ruby half of a RowObject is collected
           # as soon as nothing on the Ruby side refers to it, and what comes
           # back then is a new RowObject with no Row in it.
           d.check("and they keep their rows across a garbage collection") do
             3.times { GC.start(full_mark: true, immediate_sweep: true) }
-            (0...cache.model.n_items).none? { |index| cache.model.get_item(index).row.nil? }
+            (0...cache.n_items).none? { |index| cache.get_item(index).row.nil? }
           end
+        end
+      end
+      database.close
+    end
+  end
+
+  # Upstream's DatabaseCacheModel reads a 256-row page centred on the index it
+  # was asked for and drops everything further than 256 rows away. zbig has 400
+  # rows, which is more than one page and fewer than two, so one read at each
+  # end shows both halves of that.
+  d.step("the cache pages rows in instead of reading the table whole") do
+    Bobby::Sqlite::Database.from_file(gfile(MAIN_DB)).then do |database|
+      database.tables.find { |table| table.name.to_s == "zbig" }.then do |zbig|
+        Bobby::Sqlite::Cache.new(database, zbig).then do |cache|
+          d.check("it counts all 400 rows") { cache.n_items == 400 }
+          d.check("before any read nothing is cached") { cache.cached_rows.empty? }
+          d.check("the page offset is the index less half a page, floored at 0") do
+            [cache.page_offset(0), cache.page_offset(100), cache.page_offset(399)] ==
+              [0, 0, 271]
+          end
+          cache.get_item(0)
+          d.check("reading the first row caches one page, not the table") do
+            cache.cached_rows.length == Bobby::Sqlite::Cache::CACHE_PAGE_SIZE
+          end
+          d.check("that page starts at the top") do
+            cache.cached_rows.keys.minmax == [0, 255]
+          end
+          d.check("and the row it cached is the row that was asked for") do
+            cache.get_item(0).row.cell(1).value == "row 400"
+          end
+          cache.get_item(399).then do |last|
+            d.check("the last row reads the page that ends the table") do
+              last.row.cell(1).value == "row 1"
+            end
+          end
+          d.check("the far page was read from 271") do
+            cache.cached_rows.key?(271) && cache.cached_rows.key?(399)
+          end
+          d.check("and everything further than the guard radius was evicted") do
+            cache.cached_rows.keys.min == 399 - Bobby::Sqlite::Cache::GUARD_RADIUS
+          end
+          d.check("so the cache never holds the whole table") do
+            cache.cached_rows.length < cache.n_items
+          end
+          d.check("past the end is still nil") { cache.get_item(400).nil? }
         end
       end
       database.close
@@ -981,7 +1032,7 @@ GtkDriver.drive(APP, shots: SHOTS) do |d, app|
       end
       d.check("the model holds both rows") { content.model.n_items == 2 }
       d.check("the content holds the cache that owns them") do
-        content.model.get_item(0).equal?(content.cache.row_objects.first)
+        content.model.get_item(0).equal?(content.cache.cached_rows[0])
       end
       d.check("so every row in the model still has its Row behind it") do
         (0...content.model.n_items).all? { |index| !content.row_at(index).nil? }

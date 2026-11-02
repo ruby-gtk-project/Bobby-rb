@@ -106,7 +106,17 @@ module Bobby
 
     def close
       database&.close
+      detach_content
       window.close
+    end
+
+    # Take the table's model off its view, so that the ColumnView can be
+    # collected safely. See Widgets::Content#detach: a view freed by Ruby's
+    # garbage collector is disposed inside the sweep, and GTK asks the model
+    # for items while disposing it. A closed window's widgets are collected
+    # like any others, so a window leaving the screen detaches too.
+    def detach_content
+      content&.detach
     end
 
     def empty? = state == :empty
@@ -336,6 +346,7 @@ module Bobby
       def swap_content(table)
         Widgets::Content.new(database, table, settings: settings).tap do |new_content|
           unless content.nil?
+            content.detach
             layout.remove(content.scroller)
           end
 
@@ -370,6 +381,7 @@ module Bobby
       # one that is no longer on screen.
       def drop_content
         unless @content.nil?
+          @content.detach
           layout_children.each { |child| layout.remove(child) }
           @content = nil
         end

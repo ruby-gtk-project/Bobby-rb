@@ -168,11 +168,15 @@ module Bobby
       def forget_when_closed(window)
         window.window.tap do |gtk_window|
           gtk_window.signal_connect('close-request') do
+            window.detach_content
             windows.delete(window)
             false
           end
 
-          gtk_window.signal_connect('destroy') { windows.delete(window) }
+          gtk_window.signal_connect('destroy') do
+            window.detach_content
+            windows.delete(window)
+          end
         end
       end
 

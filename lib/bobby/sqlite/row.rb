@@ -68,9 +68,49 @@ module Bobby
           end
         end
 
+        # One page of rows by *index*, which upstream's #all cannot answer.
+        #
+        # Upstream pages a rowid table with WHERE rowid >= offset ORDER BY
+        # rowid DESC LIMIT n, and that only lines up with a row index while
+        # the rowids are contiguous, start at zero and are read ascending.
+        # Read newest-first — the default — it answers the first n rows of the
+        # whole table for every offset, so the cache would show row 0 wherever
+        # it was asked to look. The offset is an OFFSET here instead, which is
+        # what the index the list model counts in actually means. A view or
+        # WITHOUT ROWID table is the same query upstream uses.
+        def page(database, table, offset:, limit:)
+          page_sql(
+            database,
+            table,
+            offset,
+            limit,
+          ).then do |query|
+            database.connection.execute(query).map { |values| from_values(values) }
+          end
+        end
+
         def from_values(values) = new(values.map { |value| Affinity.from_value(value) })
 
         private
+
+          def page_sql(database, table, offset, limit)
+            if table.row_id?
+              <<~SQL
+                SELECT *
+                FROM #{table.name}
+                ORDER BY rowid #{RowOrder.keyword(database.row_order)}
+                LIMIT #{limit}
+                OFFSET #{offset};
+              SQL
+            else
+              <<~SQL
+                SELECT *
+                FROM #{table.name}
+                LIMIT #{limit}
+                OFFSET #{offset};
+              SQL
+            end
+          end
 
           def sql(database, table, offset, limit)
             if table.row_id?

@@ -81,6 +81,17 @@ module Bobby
         )
       end
 
+      # One page of rows counted in list-model indices, which is what
+      # Sqlite::Cache pages with. See Row.page for why it is not #rows.
+      def page(table, offset:, limit:)
+        Row.page(
+          self,
+          table,
+          offset: offset,
+          limit:  limit,
+        )
+      end
+
       # Upstream's Database#data_version: the counter SQLite bumps when
       # another connection commits, which is how a changed file is noticed.
       # nil when the pragma cannot be read.

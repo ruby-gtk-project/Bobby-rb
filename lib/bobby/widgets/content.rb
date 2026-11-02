@@ -93,6 +93,24 @@ module Bobby
         view_columns.each { |view_column| view_column.visible = true }
       end
 
+      # Take the model off the view before the content is let go.
+      #
+      # GTK's list-item manager asks the model for items from inside
+      # gtk_list_base_dispose, and a Gtk::ColumnView whose Ruby wrapper is
+      # freed by Ruby's garbage collector is disposed *during the sweep* —
+      # ruby-gnome's holder_free calls g_object_unref there. The model is
+      # Sqlite::Cache, whose get_item is Ruby, so GTK then calls Ruby from
+      # inside a GC phase and ruby-gnome allocates a Ruby Integer for the
+      # index it is passing: `[BUG] object allocation during garbage
+      # collection phase`, and the process aborts. Clearing the view's model
+      # while the window still holds the content leaves the manager nothing to
+      # ask for, so the dispose that comes later is harmless. Every path that
+      # stops showing a table calls this. Found by a 2,000-row reload loop; see
+      # FINDINGS.md.
+      def detach
+        column_view.model = nil
+      end
+
       # The scroll offsets, which win.reload carries across a reload.
       def scroll_position = [scroller.hadjustment.value, scroller.vadjustment.value]
 
@@ -124,12 +142,14 @@ module Bobby
 
       def selection = @selection ||= Gtk::SingleSelection.new(model)
 
-      # The cache is held, not just the model it builds: the model's items keep
-      # their Row in a Ruby instance variable, which only lives as long as
-      # something on the Ruby side still refers to them. See Sqlite::Cache.
+      # The cache is the model: upstream's DatabaseCacheModel is itself the
+      # Gio::ListModel the view reads, and so is this one. It pages rows in as
+      # the view asks for them and holds the RowObjects it has handed out,
+      # which is what keeps their Row alive on the Ruby side. See
+      # Sqlite::Cache.
       def cache = @cache ||= Sqlite::Cache.new(database, table)
 
-      def model = @model ||= cache.model
+      def model = cache
 
       def row_count = @row_count ||= database.row_count(table)
 

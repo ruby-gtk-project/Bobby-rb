@@ -25,8 +25,8 @@ module Bobby
   #
   # Not Gio::Application#open, which upstream's drop target uses: ruby-gnome
   # cannot marshal an array of GFile into a C array and the call raises
-  # NotImplementedError ("TODO: in Ruby -> GIArgument(array/C)
-  # [interface(interface)](GFile)").
+  # NotImplementedError, naming GIArgument(array/C) over GFile as the
+  # conversion it has no marshaller for.
   class FileDialog
     SQLITE_FILTER_NAME = 'SQLite Databases'
     SQLITE_MIME_TYPES = %w[application/x-sqlite3 application/vnd-sqlite3].freeze
