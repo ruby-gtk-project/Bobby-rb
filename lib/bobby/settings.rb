@@ -20,10 +20,12 @@ module Bobby
   # talk to the same GSettings.
   #
   # Upstream also leaves a TODO in src/app.rs about pointing
-  # GSETTINGS_SCHEMA_DIR at ./data when it is unset. That is done here: a
+  # GSETTINGS_SCHEMA_DIR at ./data when it is unset. That is done here, so a
   # checkout runs against the compiled schema in data/ without installing
-  # anything, and an installed copy — Flatpak sets the variable — is left
-  # alone.
+  # anything. The other branch — leaving an already-set GSETTINGS_SCHEMA_DIR
+  # alone, which is what a Flatpak would set — has never run: the port has no
+  # Flatpak manifest, and the checkout branch is the only one taken. See
+  # FINDINGS.md.
   class Settings
     SCHEMA_ID = 'studio.planetpeanut.Bobby'
     SCHEMA_DIR = File.expand_path('../../data', __dir__)

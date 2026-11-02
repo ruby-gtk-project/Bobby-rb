@@ -53,16 +53,26 @@ Gem::Specification.new do |spec|
   end
   enumerate_package_glob = lambda do |glob|
     Dir.glob(glob, File::FNM_DOTMATCH).filter_map do |path|
-      next unless File.file?(path) && ![".", ".."].include?(File.basename(path))
+      unless File.file?(path) && ![".", ".."].include?(File.basename(path))
+        next
+      end
 
       relative_package_path.call(path)
     end
   end
   enumerate_package_files = lambda do |root|
-    enumerate_package_glob.call(File.join(gemspec_root, root, "**", "*"))
+    enumerate_package_glob.call(
+      File.join(
+        gemspec_root,
+        root,
+        "**",
+        "*",
+      ),
+    )
   end
   package_metadata_files = %w[
     CHANGELOG.md
+    FINDINGS.md
     LICENSE.md
     README.md
     sig/bobby/rb.rbs
@@ -95,6 +105,20 @@ Gem::Specification.new do |spec|
   # Listed files are the relative paths from bindir above.
   spec.executables = ["bobby"]
   spec.require_paths = ["lib"]
+
+  # Runtime dependencies.
+  #
+  # All three are required at load time, not lazily: lib/bobby/app.rb requires
+  # "sqlite3", lib/bobby/application.rb requires "gtk4" and "adwaita", and
+  # lib/bobby/sqlite/database.rb requires "sqlite3". Listing them only in the
+  # Gemfile is not enough — that file is for local development and is not
+  # loaded in CI or by anyone who installs the gem.
+  #
+  # gtk4 and adwaita build against the system GTK 4 and libadwaita; the
+  # Flatpak manifests are what supply those.
+  spec.add_dependency("adwaita", "~> 4.4")                                          # ruby >= 3.1
+  spec.add_dependency("gtk4", "~> 4.4")                                             # ruby >= 3.1
+  spec.add_dependency("sqlite3", "~> 2.0")                                          # ruby >= 3.0
 
   # NOTE: It is preferable to list development dependencies in the gemspec due to increased
   #       visibility and discoverability.

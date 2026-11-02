@@ -7,9 +7,10 @@ module Bobby
     # Column is one column of a table or view.
     #
     # Ported from upstream's src/bobby/sqlite/column.rs, including its
-    # Database#columns, which reads PRAGMA table_info. #unique is always false
-    # there — the pragma does not report it and upstream left the lookup as a
-    # TODO — so it is false here too rather than quietly guessed.
+    # Database#columns, which reads PRAGMA table_info. #unique is always
+    # false. Upstream's is always false too — column.rs:36 is `let unique =
+    # false; // TODO`. Neither app reads PRAGMA index_list, which is the
+    # pragma that would answer whether a column is unique.
     #
     # Column.index is upstream's `Column::default()`, inserted at position 0
     # by the content widget to reserve a column for the row numbers.

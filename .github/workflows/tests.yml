@@ -1,0 +1,53 @@
+# Ported from upstream's .github/workflows/tests.yml, which runs `cargo test`
+# inside the Flatpak build on x86_64 and aarch64. The port has no Flatpak
+# manifest yet (see FINDINGS.md), so the suite runs directly on the runner.
+#
+# The gems are installed with `gem install` rather than `bundle install`:
+# Gemfile depends on kettle-family >= 1.3.29, which declares Ruby >= 4.0.0, so
+# the Gemfile does not resolve on the Ruby this gem supports and there is no
+# Gemfile.lock to install from. That is recorded in FINDINGS.md.
+#
+# spec/spec_helper.rb pulls in kettle/test/rspec and kettle-soup-cover, which
+# are part of that same unresolvable graph, so --options /dev/null skips
+# .rspec (whose --require spec_helper would load them) and the suite is given
+# the one require it actually needs.
+name: Tests
+
+on:
+  push:
+    branches: [ruby]
+  pull_request:
+
+jobs:
+  rspec:
+    name: RSpec
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.4"]
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # sqlite3 ships precompiled with SQLite bundled, so only the GTK
+      # headers have to come from apt. gtk4 and adwaita are runtime
+      # dependencies of the gem and build against them.
+      - name: Install GTK 4 and Libadwaita
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes \
+            libgtk-4-dev libadwaita-1-dev
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: false
+
+      - name: Install the gem's runtime dependencies and RSpec
+        run: gem install --no-document rspec sqlite3 gtk4 adwaita
+
+      - name: Run the suite
+        run: rspec --options /dev/null --format progress --require sqlite3 --default-path spec -I lib

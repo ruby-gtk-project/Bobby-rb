@@ -39,9 +39,16 @@ RSpec.describe Bobby::Sqlite::Affinity do
       expect(
         [
           described_class.parse("DOUBLE").type,
-          described_class.parse("FLOATING POINT").type,
+          described_class.parse("FLOAT").type,
         ],
       ).to eq([described_class::REAL, described_class::REAL])
+    end
+
+    # The INT test runs before the FLOA test, in both apps, because
+    # https://www.sqlite.org/datatype3.html orders the rules that way. "POINT"
+    # contains "INT", so SQLite itself gives FLOATING POINT integer affinity.
+    it "lets INT win over FLOA in FLOATING POINT" do
+      expect(described_class.parse("FLOATING POINT").type).to eq(described_class::INTEGER)
     end
 
     it "reads an empty declaration as BLOB" do

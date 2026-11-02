@@ -31,17 +31,13 @@ module Bobby
     # evicting everything further than 256 rows from n so a long scroll does
     # not grow without bound. n_items answers SELECT COUNT(*) once.
     #
-    # ruby-gnome cannot implement a GInterface's virtual functions from Ruby,
-    # so a custom Gio::ListModel is not available to the port and the lazy
-    # paging has nowhere to live. The table is read once, in order, into a
-    # Gio::ListStore, which answers the model interface from C. The visible
-    # behaviour is identical; the cost is that the whole table is held in
-    # memory rather than a window of it.
+    # I did not build lazy paging, so opening a large table reads every row
+    # into memory before the window appears and the app no longer scrolls
+    # tables of any size. I am an idiot. Upstream:
+    # src/bobby/sqlite/cache.rs. Port: lib/bobby/sqlite/cache.rb:51-56.
     #
-    # One statement rather than upstream's pages on purpose: upstream's paged
-    # query for a rowid table is `WHERE rowid >= offset LIMIT n`, which only
-    # lines up with the row index while the rowids are contiguous and start at
-    # zero. Reading the table in one go has no offset to get wrong.
+    # See FINDINGS.md for what was and was not established about the bindings
+    # and for the alternatives that were never tried.
     class Cache
       class << self
         def model_for(database, table) = new(database, table).model

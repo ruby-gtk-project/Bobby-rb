@@ -6,9 +6,9 @@ module Bobby
   # ShortcutsDialog lists the keyboard shortcuts.
   #
   # Ported from upstream's src/gtk/dialogs/shortcuts.rs: a General section of
-  # five items and a Tables section of one. Upstream also carries a commented
-  # out "Jump To Row" item against a shortcut it has not built yet, which is
-  # left out here rather than listed as something the app cannot do.
+  # five items and a Tables section of one. Upstream's shortcuts.rs:50 has a
+  # commented-out "Jump To Row" <Primary>l. Neither app implements it, so
+  # neither dialog lists it.
   class ShortcutsDialog < Adwaita::ShortcutsDialog
     SECTIONS = {
       'General' => [

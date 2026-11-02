@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component type="desktop">
+    <name>Bobby</name>
+    <summary>View SQLite databases</summary>
+    <summary xml:lang="de">SQLite-Datenbanken anzeigen</summary>
+    <summary xml:lang="es">Ver bases de datos SQLite</summary>
+    <summary xml:lang="fr">Afficher les bases de données SQLite</summary>
+    <summary xml:lang="pt">Visualizar bancos de dados SQLite</summary>
+
+    <id>studio.planetpeanut.Bobby</id>
+
+    <launchable type="desktop-id">studio.planetpeanut.Bobby.desktop</launchable>
+    <provides>
+        <binary>bobby</binary>
+        <mimetype>application/x-sqlite3</mimetype>
+        <mimetype>application/vnd.sqlite3</mimetype>
+    </provides>
+
+    <project_group>Planet Peanut Studio</project_group>
+    <project_license>GPL-3.0-or-later</project_license>
+
+    <url type="homepage">https://apps.gnome.org/Bobby</url>
+    <url type="bugtracker">https://github.com/hbons/Bobby/issues</url>
+    <url type="donation">https://github.com/sponsors/hbons</url>
+    <url type="vcs-browser">https://github.com/hbons/Bobby</url>
+
+    <developer id="studio.planetpeanut">
+        <name>Hylke Bons</name>
+        <email>hello_AT_planetpeanut.studio</email>
+        <url type="homepage">https://planetpeanut.studio</url>
+    </developer>
+
+    <branding>
+        <color type="primary" scheme_preference="light">#99C1F1</color>
+        <color type="primary" scheme_preference="dark">#1A5FB4</color>
+    </branding>
+
+    <screenshots>
+        <screenshot type="default">
+            <image>
+                https://raw.githubusercontent.com/hbons/Bobby/main/data/screenshots/screenshot-default.png
+            </image>
+            <caption>Browse SQLite files</caption>
+        </screenshot>
+        <screenshot>
+            <image>
+                https://raw.githubusercontent.com/hbons/Bobby/main/data/screenshots/screenshot-extra-1.png
+            </image>
+            <caption>Preferences dialog</caption>
+        </screenshot>
+        <screenshot>
+            <image>
+                https://raw.githubusercontent.com/hbons/Bobby/main/data/screenshots/screenshot-extra-2.png
+            </image>
+            <caption>Empty page</caption>
+        </screenshot>
+    </screenshots>
+
+    <description>
+        <p>
+            Bobby lets you open SQLite database files (.db, .sqlite) and browse the tables inside.
+            Handy for app development or inspecting downloaded databases.
+        </p>
+        <ul>
+            <li>Scroll through tables and views of any size</li>
+            <li>Copy rows or cells to the clipboard</li>
+            <li>Made with care by a human</li>
+        </ul>
+        <p>
+            Don't forget to sanitize your database inputs!
+        </p>
+    </description>
+
+    <releases>
+        <release version="0.1.0" date="2026-11-02">
+            <description>
+                <ul>
+                    <li>Ruby port of Bobby, on GTK 4 and Libadwaita</li>
+                </ul>
+            </description>
+        </release>
+        <release version="50.0.2" date="2026-05-09">
+            <description>
+                <ul>
+                    <li>Instant apply for all preferences</li>
+                    <li>Reload content in the same window</li>
+                    <li>Fix row number column render glitch</li>
+                </ul>
+            </description>
+        </release>
+        <release version="50.0.1" date="2026-04-30">
+            <description>
+                <ul>
+                    <li>Update app icon and symbolic icon</li>
+                    <li>Use the same window when opening from the empty page</li>
+                    <li>Mention possible encryption on file open errors</li>
+                </ul>
+            </description>
+        </release>
+        <release version="50.0.0" date="2026-04-13">
+            <description>
+                <ul>
+                    <li>Use GNOME 50</li>
+                    <li>Keyboard shortcut for Copy Row (Ctrl+C)</li>
+                    <li>Fix missing border between title and table</li>
+                </ul>
+            </description>
+        </release>
+        <release version="49.0.4" date="2026-03-15">
+            <description>
+                <ul>
+                    <li>Add reload action (Ctrl+R)</li>
+                    <li>Keyboard shortcut for Open Menu (F10)</li>
+                    <li>Remove noisy window title tooltip</li>
+                </ul>
+            </description>
+        </release>
+        <release version="49.0.3" date="2026-02-04">
+            <description>
+                <ul>
+                    <li>Support opening databases that are in WAL-mode</li>
+                    <li>Show error message on opening unsupported files</li>
+                    <li>Toast notifications on copy to clipboard</li>
+                </ul>
+            </description>
+        </release>
+        <release version="49.0.2" date="2026-01-24">
+            <description>
+                <ul>
+                    <li>Expand cell labels for larger context menu targets</li>
+                    <li>Fix Quit keyboard shortcut</li>
+                    <li>Fix start page opening after every close</li>
+                </ul>
+            </description>
+        </release>
+        <release version="49.0.1" date="2026-01-22">
+            <description>
+                <ul>
+                    <li>Fix display of tables without a rowid</li>
+                    <li>Keyboard shortcuts for Open/Close/Quit</li>
+                    <li>Return to start page after close if it was used</li>
+                </ul>
+           </description>
+        </release>
+        <release version="49.0.0" date="2026-01-20">
+            <description>
+                <ul>
+                    <li>First release!</li>
+                    <li>Designed for GNOME</li>
+                    <li>Made by a human using Rust</li>
+                </ul>
+           </description>
+        </release>
+    </releases>
+
+    <requires>
+        <display_length compare="ge">640</display_length>
+    </requires>
+
+    <recommends>
+        <control>keyboard</control>
+        <control>pointing</control>
+    </recommends>
+
+    <content_rating type="oars-1.1">
+        <!-- <content_attribute id="money-purchasing">mild</content_attribute> -->
+    </content_rating>
+
+    <categories>
+        <category>Development</category>
+        <category>Database</category>
+        <category>Science</category>
+        <category>Utility</category>
+    </categories>
+
+    <keywords>
+        <keyword>database</keyword>
+        <keyword xml:lang="de">Datenbank</keyword>
+        <keyword xml:lang="es">base de datos</keyword>
+        <keyword xml:lang="fr">base de données</keyword>
+        <keyword xml:lang="pt">banco de dados</keyword>
+
+        <keyword>sqlite</keyword>
+        <keyword xml:lang="de">sqlite</keyword>
+        <keyword xml:lang="es">sqlite</keyword>
+        <keyword xml:lang="fr">sqlite</keyword>
+        <keyword xml:lang="pt">sqlite</keyword>
+
+        <keyword>table</keyword>
+        <keyword xml:lang="de">Tabelle</keyword>
+        <keyword xml:lang="es">tabla</keyword>
+        <keyword xml:lang="pt">tabela</keyword>
+
+        <keyword>sql</keyword>
+        <keyword>query</keyword>
+        <keyword>row</keyword>
+        <keyword>column</keyword>
+        <keyword>cell</keyword>
+        <keyword>gnome</keyword>
+        <keyword>gtk</keyword>
+    </keywords>
+
+    <metadata_license>CC0-1.0</metadata_license>
+    <update_contact>hello_AT_planetpeanut.studio</update_contact>
+</component>

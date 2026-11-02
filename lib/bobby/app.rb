@@ -70,6 +70,14 @@ module Bobby
       @icon = ID
       @version = Rb::VERSION
       @prefix = PREFIX
+      # Both of these are upstream's src/app.rs:82-83 unchanged, and both name
+      # files that do not exist. PREFIX is '/app', which only exists inside a
+      # Flatpak, and the port has no Flatpak manifest. The basenames are wrong
+      # upstream too: data/meson.build installs
+      # studio.planetpeanut.Bobby.desktop into share/applications and
+      # studio.planetpeanut.Bobby.metainfo.xml into share/metainfo, not
+      # bobby.desktop and share/appdata/bobby.appdata.xml. Nothing reads
+      # either field, which is why neither app has noticed. See FINDINGS.md.
       @desktop_file = File.join(PREFIX, 'share/applications', "#{COMMAND}.desktop")
       @appdata_file = File.join(PREFIX, 'share/appdata', "#{COMMAND}.appdata.xml")
       @app_config_home = File.join(xdg_config_home, COMMAND)

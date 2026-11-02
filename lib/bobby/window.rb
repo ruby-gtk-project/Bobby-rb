@@ -70,7 +70,7 @@ module Bobby
 
     def build
       window.tap do |win|
-        win.content = toolbar_view
+        win.child = toolbar_view
         win.add_controller(drop_target.build)
         win.add_action(close_action.build)
         win.add_css_class('flat')
@@ -176,9 +176,23 @@ module Bobby
 
     # Memoized widget methods
 
+    # Gtk::ApplicationWindow rather than Adwaita::ApplicationWindow, which the
+    # Ruby bindings cannot construct from an application object. The two differ
+    # in how the content is set — Adwaita's is #content=, GTK's is #child= —
+    # and in the titlebar: Gtk::Window draws a default one, which would sit
+    # above the ToolbarView's own Adwaita::HeaderBar. An empty hidden widget in
+    # the titlebar slot takes that row away and leaves the client-side
+    # decorations on the header bar below it.
     def window
-      @window ||= Adwaita::ApplicationWindow.new(application).tap do |win|
+      @window ||= Gtk::ApplicationWindow.new(application).tap do |win|
         win.set_default_size(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+        win.titlebar = empty_titlebar
+      end
+    end
+
+    def empty_titlebar
+      @empty_titlebar ||= Gtk::Box.new(:horizontal, 0).tap do |box|
+        box.visible = false
       end
     end
 

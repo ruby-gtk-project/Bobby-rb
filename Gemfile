@@ -60,10 +60,12 @@ eval_gemfile "gemfiles/modular/x_std_libs.gemfile"
 # See unlocked_deps appraisal for more details on irb inclusion
 gem "irb", "~> 1.17" # ruby >= 2.7
 gem "gem_kit"
-gem "gtk4"
 
 group :development do
   gem "rubocop"
 end
-gem "adwaita"
-gem "sqlite3"
+
+# gtk4, adwaita and sqlite3 are runtime dependencies declared in
+# bobby-rb.gemspec, which `gemspec` above pulls in. They were listed here as
+# well; a Gemfile-only declaration is invisible to CI and to anyone who
+# installs the gem, so the gemspec is the only place they belong.
