@@ -39,10 +39,6 @@ module Bobby
     # See FINDINGS.md for what was and was not established about the bindings
     # and for the alternatives that were never tried.
     class Cache
-      class << self
-        def model_for(database, table) = new(database, table).model
-      end
-
       def initialize(database, table)
         @database = database
         @table = table
@@ -52,9 +48,23 @@ module Bobby
 
       def row_count = @row_count ||= database.row_count(table)
 
+      # The RowObjects are held here as well as in the store, and that is not
+      # redundant. A GLib::Object subclass defined in Ruby keeps its attribute
+      # in a Ruby instance variable, and ruby-gnome associates the Ruby half
+      # with the GObject only weakly: dropping the last Ruby reference lets the
+      # Ruby object be collected while the GObject lives on in the store, and
+      # the next read hands back a freshly made RowObject whose #row is nil.
+      # The table then renders blank, and with a few hundred rows the bind
+      # handler segfaults on the stale object instead. So the cache outlives
+      # the store, which is why the content widget holds the cache and not just
+      # the model it built. Found by test/drive_bobby.rb; see FINDINGS.md.
+      def row_objects
+        @row_objects ||= database.rows(table).map { |row| RowObject.new(row) }
+      end
+
       def model
         @model ||= Gio::ListStore.new(RowObject).tap do |store|
-          database.rows(table).each { |row| store.append(RowObject.new(row)) }
+          row_objects.each { |object| store.append(object) }
         end
       end
     end

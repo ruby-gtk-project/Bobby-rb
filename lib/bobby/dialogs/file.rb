@@ -11,9 +11,15 @@ module Bobby
   # filters — the SQLite extensions and MIME types, then everything.
   #
   # Upstream walks the returned list model and calls window_handle_open on
-  # each file; the port hands the whole list to Gio::Application#open, which
-  # is the entry point the command line and a drag-and-drop already use, so
-  # all three arrive at the same place.
+  # each file; the port hands the whole list to the opener — the Application —
+  # whose #open_files is the body of the handler GIO calls for the "open"
+  # signal, so the command line, a drag-and-drop and this dialog all arrive at
+  # the same place.
+  #
+  # Not Gio::Application#open, which upstream's drop target uses: ruby-gnome
+  # cannot marshal an array of GFile into a C array and the call raises
+  # NotImplementedError ("TODO: in Ruby -> GIArgument(array/C)
+  # [interface(interface)](GFile)").
   class FileDialog
     SQLITE_FILTER_NAME = 'SQLite Databases'
     SQLITE_MIME_TYPES = %w[application/x-sqlite3 application/vnd-sqlite3].freeze
@@ -22,9 +28,9 @@ module Bobby
     ALL_FILTER_NAME = 'All Files'
     ALL_PATTERN = '*'
 
-    def initialize(application) = @application = application
+    def initialize(opener) = @opener = opener
 
-    attr_reader :application
+    attr_reader :opener
 
     def build = dialog
 
@@ -69,8 +75,8 @@ module Bobby
 
       def open_files(files)
         files.to_a.then do |list|
-          if list.any?
-            application.open(list, '')
+          if list.any? && !opener.nil?
+            opener.open_files(list)
           end
         end
       end

@@ -80,7 +80,7 @@ module Bobby
     def app_actions
       @app_actions ||= [
         Actions::AppAbout.new(app),
-        Actions::AppOpen.new(app),
+        Actions::AppOpen.new(app, opener: self),
         Actions::AppPreferences.new(app),
         Actions::AppQuit.new(app),
         Actions::AppShortcuts.new(app),
@@ -99,6 +99,13 @@ module Bobby
       end
     end
 
+    # The body of the handler GIO calls for the "open" signal, which the file
+    # dialog and the drop target call directly: Gio::Application#open takes a
+    # C array of GFile, which ruby-gnome cannot marshal.
+    def open_files(files)
+      files.each { |file| handle_open(file) }
+    end
+
     def activate
       app.active_window.then do |existing|
         if existing.nil?
@@ -115,10 +122,6 @@ module Bobby
         Adwaita.init
         Icons.install
         Gtk::Application.new(App::ID, FLAGS)
-      end
-
-      def open_files(files)
-        files.each { |file| handle_open(file) }
       end
 
       def open_path(path, file, table_name)
@@ -141,10 +144,28 @@ module Bobby
       def target_window = windows.find(&:empty?) || new_window
 
       def new_window
-        Window.new(app, settings: settings).tap do |window|
+        Window.new(app, settings: settings, opener: self).tap do |window|
           window.build
           windows << window
-          window.window.signal_connect('destroy') { windows.delete(window) }
+          forget_when_closed(window)
+        end
+      end
+
+      # Upstream enumerates the application's own window list, which GTK
+      # empties as windows close. The port keeps its Window objects, so it has
+      # to be told. Both signals are watched because GTK4's gtk_window_close
+      # unmaps the window and takes it off the application without destroying
+      # it and without emitting "destroy": a destroy handler on its own leaves
+      # a window the user closed in the list for ever, and the next file opened
+      # would be loaded into it and never seen.
+      def forget_when_closed(window)
+        window.window.tap do |gtk_window|
+          gtk_window.signal_connect('close-request') do
+            windows.delete(window)
+            false
+          end
+
+          gtk_window.signal_connect('destroy') { windows.delete(window) }
         end
       end
 

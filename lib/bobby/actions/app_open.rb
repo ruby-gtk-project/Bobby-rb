@@ -14,9 +14,12 @@ module Bobby
       NAME = 'open'
       ACCELS = ['<Primary>o'].freeze
 
-      def initialize(application) = @application = application
+      def initialize(application, opener: nil)
+        @application = application
+        @opener = opener
+      end
 
-      attr_reader :application
+      attr_reader :application, :opener
 
       def build
         action.tap do |a|
@@ -27,7 +30,7 @@ module Bobby
 
       def action = @action ||= Gio::SimpleAction.new(NAME, nil)
 
-      def dialog = @dialog ||= FileDialog.new(application)
+      def dialog = @dialog ||= FileDialog.new(opener)
 
       private
 

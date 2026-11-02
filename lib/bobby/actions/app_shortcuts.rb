@@ -26,12 +26,17 @@ module Bobby
 
       def action = @action ||= Gio::SimpleAction.new(NAME, nil)
 
+      # Memoized, as AppOpen's file dialog is: an Adwaita dialog can be
+      # presented again after it is closed, and holding the one the action
+      # opens is what lets anything outside the handler see it.
+      def dialog = @dialog ||= ShortcutsDialog.new.build
+
       private
 
         def present
           application.active_window.then do |window|
             unless window.nil?
-              ShortcutsDialog.new.build.present(window)
+              dialog.present(window)
             end
           end
         end

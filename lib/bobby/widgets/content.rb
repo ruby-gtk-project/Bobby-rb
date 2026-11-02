@@ -117,7 +117,12 @@ module Bobby
 
       def selection = @selection ||= Gtk::SingleSelection.new(model)
 
-      def model = @model ||= Sqlite::Cache.model_for(database, table)
+      # The cache is held, not just the model it builds: the model's items keep
+      # their Row in a Ruby instance variable, which only lives as long as
+      # something on the Ruby side still refers to them. See Sqlite::Cache.
+      def cache = @cache ||= Sqlite::Cache.new(database, table)
+
+      def model = @model ||= cache.model
 
       def row_count = @row_count ||= database.row_count(table)
 

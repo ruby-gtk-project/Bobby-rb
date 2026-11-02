@@ -59,14 +59,24 @@ module Bobby
     NO_TABLES = 'Table list empty'
     NO_SUCH_TABLE = 'Table does not exist'
 
-    def initialize(application, settings: Settings.instance)
+    # opener is the Application: what a dropped file is handed to, since
+    # Gio::Application#open cannot be called from Ruby.
+    def initialize(application, settings: Settings.instance, opener: nil)
       @application = application
       @settings = settings
+      @opener = opener
       @state = :empty
       @table_index = 0
     end
 
-    attr_reader :application, :settings, :database, :content, :tables, :table_index, :state
+    attr_reader :application,
+      :settings,
+      :opener,
+      :database,
+      :content,
+      :tables,
+      :table_index,
+      :state
 
     def build
       window.tap do |win|
@@ -112,6 +122,7 @@ module Bobby
       @state = :empty
       @key = nil
       @database = nil
+      drop_content
       window.title = EMPTY_TITLE
       toolbar_view.content = empty_page
     end
@@ -120,6 +131,7 @@ module Bobby
       @state = :error
       @key = file.path
       @database = nil
+      drop_content
       error_page.description = message
       window.title = title_for(file)
       toolbar_view.content = error_page
@@ -130,12 +142,23 @@ module Bobby
     # The offsets are reapplied on an idle tick rather than straight away:
     # the new ColumnView has not been allocated yet, so its adjustments still
     # have an upper bound of zero and would clamp the values to it.
+    #
+    # A window with no database has nothing to re-read, and asking it to do so
+    # anyway is reachable: the row-order and monospace-font preferences reload
+    # the active window, which may be sitting in its error state. Upstream's
+    # window_reload leaves with Err there — it looks its widgets up by name and
+    # an error window has no "content" — and every caller discards that Err, so
+    # nothing happens. This is that nothing. Before the guard was here, changing
+    # either preference while a window showed the error state raised
+    # NoMethodError inside the GSettings handler and took the process with it.
     def reload
-      content&.scroll_position.then do |position|
-        current_table_name.then do |table_name|
-          database&.close
-          reopen(table_name)
-          restore_scroll(position)
+      unless database.nil?
+        content&.scroll_position.then do |position|
+          current_table_name.then do |table_name|
+            database&.close
+            reopen(table_name)
+            restore_scroll(position)
+          end
         end
       end
     end
@@ -247,7 +270,7 @@ module Bobby
 
     def main_menu = @main_menu ||= Widgets::Menu.new(application)
 
-    def drop_target = @drop_target ||= Widgets::DropTarget.new(application)
+    def drop_target = @drop_target ||= Widgets::DropTarget.new(opener)
 
     def switcher = @switcher ||= Widgets::Switcher.new(tables.to_a)
 
@@ -327,9 +350,22 @@ module Bobby
       end
 
       def reopen(table_name)
-        @content = nil
-        layout_children.each { |child| layout.remove(child) }
+        drop_content
         load(database.file, table_name: table_name)
+      end
+
+      # Upstream's states each replace the window's whole child, so leaving the
+      # content state takes the table with it: win.copy-row then looks for a
+      # ColumnView in the window, finds none and does nothing. Here the table
+      # is both a widget in the layout box and an attribute, so both have to
+      # go — otherwise an emptied window still answers win.copy-row from the
+      # table it used to show, and the next table would be appended below the
+      # one that is no longer on screen.
+      def drop_content
+        unless @content.nil?
+          layout_children.each { |child| layout.remove(child) }
+          @content = nil
+        end
       end
 
       # Everything the layout holds except the banner, which belongs to the
