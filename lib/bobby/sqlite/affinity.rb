@@ -1,5 +1,12 @@
 # frozen_string_literal: true
 
+#   Bobby, browse SQLite files
+#   Copyright (C) 2025  Hylke Bons (hello@planetpeanut.studio)
+#   Copyright (C) 2026  ruby-gtk-project, for the Ruby port
+#
+#   This program is free software: you can redistribute it and/or modify it
+#   under the terms of the GNU General Public License v3 or any later version.
+
 require 'sqlite3'
 
 module Bobby
@@ -36,6 +43,12 @@ module Bobby
 
       # How many leading bytes of a blob the hex preview shows.
       PREVIEW_LENGTH = 8
+
+      # What Rust's Display for f64 prints for the three values that have no
+      # digits. Ruby's Float#to_s says "NaN", "Infinity" and "-Infinity".
+      NOT_A_NUMBER = 'NaN'
+      INFINITY = 'inf'
+      NEGATIVE_INFINITY = '-inf'
 
       attr_reader :type, :value, :length, :preview
 
@@ -179,7 +192,7 @@ module Bobby
           if value.nil?
             EM_DASH
           else
-            value.to_s
+            value_string
           end
         end
 
@@ -187,9 +200,76 @@ module Bobby
           if value.nil?
             UNKNOWN
           else
+            value_string
+          end
+        end
+
+        # The value as upstream's Display writes it. Everything but a REAL is
+        # the same text in both languages; a REAL is not, so it goes through
+        # real_to_s. This is the one place that formats a value, which is why
+        # the cell text, the tooltip and the clipboard cannot drift apart.
+        def value_string
+          if type == REAL && value.is_a?(Float)
+            real_to_s(value)
+          else
             value.to_s
           end
         end
+
+        # Rust's `impl Display for f64`, which is not Ruby's Float#to_s.
+        #
+        # Rust prints the shortest decimal that reads back as the same f64,
+        # positionally and with no trailing ".0": 1.0 is "1", 1e300 is a 1 and
+        # three hundred zeros, 1e-300 is "0." and three hundred digits. Ruby
+        # prints "1.0", "1.0e+300" and "1.0e-300". The digits themselves agree
+        # — both languages print the shortest round-tripping decimal — so the
+        # digits are taken from Float#to_s and only the decimal point is moved,
+        # which keeps the conversion exact with no loss through a decimal
+        # library.
+        def real_to_s(float)
+          if float.nan?
+            NOT_A_NUMBER
+          elsif float.infinite?
+            float.negative? ? NEGATIVE_INFINITY : INFINITY
+          else
+            positional(float.to_s)
+          end
+        end
+
+        # "1.0e+300" -> a 1 followed by three hundred zeros. The mantissa's
+        # digits are kept verbatim and the exponent is spent walking the
+        # decimal point along them.
+        def positional(text)
+          text.split(/e/i).then do |mantissa, exponent|
+            mantissa.delete_prefix('-').split('.').then do |whole, fraction|
+              "#{sign_of(mantissa)}" \
+                "#{point_at(whole + fraction.to_s, whole.length + exponent.to_i)}"
+            end
+          end
+        end
+
+        def sign_of(mantissa)
+          if mantissa.start_with?('-')
+            '-'
+          else
+            ''
+          end
+        end
+
+        # The digit string with a decimal point inserted at `point`, which may
+        # fall before the first digit or past the last one.
+        def point_at(digits, point)
+          if point <= 0
+            trim("0.#{'0' * -point}#{digits}")
+          elsif point >= digits.length
+            digits + ('0' * (point - digits.length))
+          else
+            trim("#{digits[0, point]}.#{digits[point..]}")
+          end
+        end
+
+        # Rust writes no trailing zeros and no trailing point: 1.0 is "1".
+        def trim(text) = text.sub(/\.?0+\z/, '')
 
         def blob_tooltip
           if preview.nil?
@@ -203,7 +283,7 @@ module Bobby
           if value.nil?
             'NULL'
           else
-            "#{type_string} #{value}"
+            "#{type_string} #{value_string}"
           end
         end
 
@@ -211,7 +291,7 @@ module Bobby
           if value.nil?
             "#{self} NULL"
           else
-            "#{type_string} #{value}"
+            "#{type_string} #{value_string}"
           end
         end
     end

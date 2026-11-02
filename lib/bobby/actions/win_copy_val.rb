@@ -1,5 +1,12 @@
 # frozen_string_literal: true
 
+#   Bobby, browse SQLite files
+#   Copyright (C) 2025  Hylke Bons (hello@planetpeanut.studio)
+#   Copyright (C) 2026  ruby-gtk-project, for the Ruby port
+#
+#   This program is free software: you can redistribute it and/or modify it
+#   under the terms of the GNU General Public License v3 or any later version.
+
 require 'adwaita'
 
 require_relative '../util'
@@ -13,15 +20,26 @@ module Bobby
     # which cell was right-clicked.
     #
     # The toast quotes the copied value and asks Pango for tabular figures, so
-    # a column of numbers does not jitter. A value of 96 characters or more
-    # gets no toast at all: upstream builds a shorter title for that case and
-    # then never shows it, so the long value is copied silently.
+    # a column of numbers does not jitter. A value of 96 bytes or more gets no
+    # toast at all: upstream builds a shorter title for that case and then
+    # never shows it, so the long value is copied silently.
     class WinCopyVal
       NAME = 'copy-val'
       TIMEOUT = 2
 
-      # The length upstream stops announcing the value at.
+      # The length upstream stops announcing the value at, in bytes. Upstream
+      # tests `selection.len()`, which is a Rust String's byte length and not
+      # its character count — fifty accented characters are a hundred bytes
+      # and are copied silently.
       MAX_ANNOUNCED = 96
+
+      # The title upstream builds for a value at or past the cutoff, which
+      # upstream then never shows: the `if` that picks the title and the `if`
+      # that adds the toast test the same condition, so this string is built
+      # and dropped on every long copy. It is here for the same reason it is
+      # there — so that the day the second `if` goes, both apps say the same
+      # thing rather than one of them saying nothing.
+      LONG_TITLE = 'Copied to clipboard'
 
       # ruby-gnome has no binding for g_markup_escape_text, and the toast
       # title is parsed as markup, so a value containing "<" or "&" would
@@ -80,16 +98,28 @@ module Bobby
         end
 
         def announce(value)
-          if value.length < MAX_ANNOUNCED
-            window.overlay.tap do |overlay|
-              overlay.dismiss_all
-              overlay.add_toast(toast(value))
+          title_for(value).then do |title|
+            if announced?(value)
+              window.overlay.tap do |overlay|
+                overlay.dismiss_all
+                overlay.add_toast(toast(title))
+              end
             end
           end
         end
 
-        def toast(value)
-          Adwaita::Toast.new(markup(value)).tap do |t|
+        def announced?(value) = value.bytesize < MAX_ANNOUNCED
+
+        def title_for(value)
+          if announced?(value)
+            markup(value)
+          else
+            LONG_TITLE
+          end
+        end
+
+        def toast(title)
+          Adwaita::Toast.new(title).tap do |t|
             t.timeout = TIMEOUT
           end
         end

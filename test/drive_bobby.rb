@@ -49,6 +49,12 @@ FileUtils.rm_rf(SHOTS)
 # One ordinary table with every affinity in it, one WITHOUT ROWID table whose
 # name carries the underscore the switcher has to escape, and one view, so
 # Table's three-valued has_row_id and Row's two queries are both exercised.
+# 47 x U+00E9: 47 characters, 94 bytes, so it is under the 96 the long-copy
+# cutoff counts. One more character takes it to 96 bytes while leaving it 48
+# characters long, which is what tells a byte count from a character count.
+ANNOUNCED_NOTE = "\u00E9" * 47
+SILENT_NOTE = "\u00E9" * 48
+
 MAIN_DB = File.join(SCRATCH, "fixture.db")
 SQLite3::Database.new(MAIN_DB) do |db|
   db.execute(<<~SQL)
@@ -61,9 +67,19 @@ SQLite3::Database.new(MAIN_DB) do |db|
       rating NUMERIC
     );
   SQL
-  db.execute("INSERT INTO people VALUES (1, 'Ada <&>', 1.5, X'DEADBEEFCAFE0102', NULL, 7)")
-  db.execute("INSERT INTO people VALUES (2, 'Bob', 2.5, NULL, 'second', NULL)")
-  db.execute("INSERT INTO people VALUES (3, 'Cy', 3.5, NULL, 'third', 9)")
+  # The three scores are the three REAL values that render differently in the
+  # two apps unless the port formats them the way Rust's Display for f64 does:
+  # an integral one with no trailing ".0", a very large one in full rather than
+  # as an exponent, and a fractional one, which is the only one Ruby already
+  # agreed with upstream about.
+  #
+  # The two notes are the long-copy cutoff, which upstream counts in bytes:
+  # ANNOUNCED_NOTE is 47 accented characters and 94 bytes, so both apps
+  # announce it, and SILENT_NOTE is 48 of them and 96 bytes, so neither does —
+  # though a port counting characters would have announced it.
+  db.execute("INSERT INTO people VALUES (1, 'Ada <&>', 1.0, X'DEADBEEFCAFE0102', NULL, 7)")
+  db.execute("INSERT INTO people VALUES (2, 'Bob', 1e300, NULL, ?, NULL)", [ANNOUNCED_NOTE])
+  db.execute("INSERT INTO people VALUES (3, 'Cy', 3.5, NULL, ?, 9)", [SILENT_NOTE])
   db.execute("CREATE TABLE audit_log (key TEXT PRIMARY KEY, msg TEXT) WITHOUT ROWID")
   db.execute("INSERT INTO audit_log VALUES ('k1', 'first message')")
   db.execute("INSERT INTO audit_log VALUES ('k2', 'second message')")
@@ -98,11 +114,19 @@ def gfile(path) = Gio::File.new_for_path(path)
 # Every descendant of `widget`, depth first. The ColumnView builds its cell
 # widgets itself, so the only way to see what Item wrote into them is to walk
 # the tree it made.
+# A nested ColumnView is collected but not walked into. GTK builds, recycles
+# and destroys that view's row and cell widgets itself, and walking a four
+# hundred row one while it is doing that segfaults the process: the walk holds
+# a Ruby proxy for a row widget GTK has just thrown away. Nothing below a
+# ColumnView is part of the layout anyway, and a walk that wants the cells
+# starts at the ColumnView itself, which is still walked in full.
 def descendants(widget, found = [])
   child = widget.first_child
   while child
     found << child
-    descendants(child, found)
+    unless child.is_a?(Gtk::ColumnView)
+      descendants(child, found)
+    end
     child = child.next_sibling
   end
   found
@@ -159,6 +183,62 @@ end
 # What the clipboard holds, read back through GDK rather than trusted. The read
 # is asynchronous, so the step that asks is never the step that checks.
 CLIPBOARD = {}
+
+# Adwaita::ToastOverlay hands nothing back once a toast is added, and the
+# toast widget it builds carries the title but not the timeout. So the
+# window's overlay is watched: add_toast records the Adwaita::Toast it was
+# given and then shows it exactly as before. This is the only way to see a
+# toast's timeout from the outside.
+TOASTS = []
+
+module ToastSpy
+  def add_toast(toast)
+    TOASTS << toast
+    super
+  end
+end
+
+def watch_toasts(overlay)
+  overlay.tap do |o|
+    unless o.singleton_class.include?(ToastSpy)
+      o.singleton_class.prepend(ToastSpy)
+    end
+  end
+end
+
+# The toast widgets libadwaita has built inside the overlay, youngest last.
+# `class.name` is nil for these: ruby-gnome builds an anonymous Ruby class for
+# a GType it has no binding for, and AdwToastWidget is private to libadwaita.
+# The class still prints its GType name, so that is what is matched.
+def toast_widgets(overlay)
+  descendants(overlay).select { |widget| widget.class.to_s == "AdwToastWidget" }
+end
+
+# What each of those toasts says. The title is markup, so the label's own
+# markup string is read rather than the text GTK renders from it — that is
+# what makes the bytes comparable with upstream's format string.
+def toast_titles(overlay)
+  toast_widgets(overlay).map do |widget|
+    descendants(widget).grep(Gtk::Label).first&.label
+  end
+end
+
+# Turns the main loop until the block answers true, or until `limit` turns
+# have gone by. A step runs between two ticks of the driver's timeout, and
+# GTK does its laying out in the frame cycle, so something that needs more
+# than one frame — four hundred rows being measured, for instance — is not
+# ready when the next step looks at it. Asking for turns rather than sleeping
+# for a guessed interval keeps the wait as short as the work.
+def settle_until(limit = 120)
+  turns = 0
+
+  until yield || turns >= limit
+    GLib::MainContext.default.iteration(true)
+    turns += 1
+  end
+
+  turns
+end
 
 def read_clipboard(key)
   CLIPBOARD.delete(key)
@@ -332,6 +412,9 @@ GtkDriver.drive(APP, shots: SHOTS) do |d, app|
 
   d.step("F10's action popped the menu open") do
     app.windows.first.main_menu.then do |menu|
+      # Popping a menu up is animated, so the button's active state arrives in
+      # the frame cycle rather than on the next tick of the driver's timeout.
+      settle_until(40) { menu.button.active? }
       d.check("the menu button is active now") { menu.button.active? }
       d.check("its popover is a Gtk::PopoverMenu built from the model") do
         menu.button.popover.is_a?(Gtk::PopoverMenu)
@@ -1046,6 +1129,79 @@ GtkDriver.drive(APP, shots: SHOTS) do |d, app|
     end
   end
 
+  # -- The toasts -----------------------------------------------------------
+  #
+  # The toast is the only thing that tells a user a copy worked, so both
+  # titles are read back off the overlay and compared with upstream's format
+  # strings byte for byte, and the dismiss-before-add that keeps a held-down
+  # Ctrl+C from queueing a toast per repeat is observed rather than assumed.
+
+  d.step("the overlay is watched, and emptied of what the copies left in it") do
+    app.windows.first.then do |window|
+      watch_toasts(window.overlay)
+      window.window.present
+      window.overlay.dismiss_all
+      TOASTS.clear
+    end
+  end
+
+  d.step("win.copy-row announces the row it copied") do
+    # A dismissed toast fades out over a frame or two before libadwaita takes
+    # its widget out of the overlay, so the emptiness is waited for rather
+    # than assumed on the next tick.
+    settle_until(40) { toast_widgets(app.windows.first.overlay).empty? }
+    d.check("the overlay starts empty") do
+      toast_widgets(app.windows.first.overlay).empty?
+    end
+    app.windows.first.window.activate_action("copy-row", nil)
+  end
+
+  d.step("the toast names the row by its one-based number, as upstream's does") do
+    app.windows.first.then do |window|
+      settle_until(40) { toast_widgets(window.overlay).length == 1 }
+      d.check("one toast is on screen") { toast_widgets(window.overlay).length == 1 }
+      d.check("its title is upstream's format, byte for byte") do
+        toast_titles(window.overlay) == ["Row 1 copied to clipboard"]
+      end
+      d.check("the overlay was handed exactly one toast") { TOASTS.length == 1 }
+      d.check("the toast itself carries that title") do
+        TOASTS.first.title == "Row 1 copied to clipboard"
+      end
+      d.check("it times out after upstream's two seconds") { TOASTS.first.timeout == 2 }
+      window.window.activate_action("copy-row", nil)
+    end
+  end
+
+  d.step("a second copy dismisses the first toast rather than queueing it") do
+    app.windows.first.then do |window|
+      d.check("the overlay was handed a second toast") { TOASTS.length == 2 }
+      settle_until(40) { toast_widgets(window.overlay).length <= 1 }
+      d.check("but only one of them is on screen") do
+        toast_widgets(window.overlay).length == 1
+      end
+      window.overlay.dismiss_all
+      TOASTS.clear
+    end
+  end
+
+  d.step("win.copy-val quotes the value it copied") do
+    app.windows.first.window.activate_action("copy-val", GLib::Variant.new("0:1"))
+  end
+
+  d.step("the toast is upstream's tabular-figures markup around the value") do
+    app.windows.first.then do |window|
+      settle_until(40) { toast_widgets(window.overlay).length == 1 }
+      d.check("one toast is on screen") { toast_widgets(window.overlay).length == 1 }
+      d.check("its title is upstream's markup, byte for byte") do
+        toast_titles(window.overlay) ==
+          ["<span font_features='tnum=1'>\u2018first message\u2019  copied to clipboard</span>"]
+      end
+      d.check("it times out after two seconds too") { TOASTS.last.timeout == 2 }
+      window.overlay.dismiss_all
+      TOASTS.clear
+    end
+  end
+
   # -- Switching tables ------------------------------------------------------
 
   d.step("win.table switches to another of the database's tables") do
@@ -1086,6 +1242,99 @@ GtkDriver.drive(APP, shots: SHOTS) do |d, app|
       end
     end
     d.shot("07-people-table")
+  end
+
+  # -- A REAL cell, and the byte-counted copy cutoff ------------------------
+
+  d.step("the REAL cells render the way Rust's Display for f64 writes a float") do
+    app.windows.first.content.then do |content|
+      d.check("an integral REAL loses its trailing .0") do
+        content.row_at(2).cell(2).to_s == "1"
+      end
+      d.check("and that is the text the cell's own label carries") do
+        value_cells(content.column_view, 3).map(&:text).include?("1")
+      end
+      d.check("the tooltip says the same thing, not REAL 1.0") do
+        value_cells(content.column_view, 3).find { |label| label.text == "1" }
+          .then { |label| label&.parent&.tooltip_text == "REAL 1" }
+      end
+      d.check("a very large REAL is written in full rather than as an exponent") do
+        content.row_at(1).cell(2).to_s == "1#{"0" * 300}"
+      end
+      d.check("and the label carries all three hundred and one digits") do
+        value_cells(content.column_view, 3).map(&:text).include?("1#{"0" * 300}")
+      end
+      d.check("a fractional REAL is unchanged") do
+        content.row_at(0).cell(2).to_s == "3.5"
+      end
+    end
+  end
+
+  d.step("copying an integral REAL puts the cell's own text on the clipboard") do
+    app.windows.first.window.activate_action("copy-val", GLib::Variant.new("2:2"))
+    read_clipboard(:real)
+  end
+
+  d.step("the clipboard holds 1 rather than 1.0") do
+    d.check("the read came back") { CLIPBOARD.key?(:real) }
+    d.check("it is what the cell shows") { CLIPBOARD[:real] == "1" }
+    app.windows.first.then do |window|
+      window.overlay.dismiss_all
+      TOASTS.clear
+      window.window.activate_action("copy-val", GLib::Variant.new("2:1"))
+    end
+  end
+
+  d.step("a value with markup characters in it is escaped into the title") do
+    app.windows.first.then do |window|
+      settle_until(40) { toast_widgets(window.overlay).length == 1 }
+      d.check("the toast is on screen") { toast_widgets(window.overlay).length == 1 }
+      d.check("< > and & came through escaped, so Pango keeps the characters") do
+        toast_titles(window.overlay) ==
+          ["<span font_features='tnum=1'>\u2018Ada &lt;&amp;&gt;\u2019  copied to clipboard</span>"]
+      end
+      window.overlay.dismiss_all
+      TOASTS.clear
+      window.window.activate_action("copy-val", GLib::Variant.new("1:4"))
+    end
+  end
+
+  d.step("a 94-byte value is announced, because upstream counts bytes") do
+    app.windows.first.then do |window|
+      d.check("the value is 47 characters and 94 bytes") do
+        [ANNOUNCED_NOTE.length, ANNOUNCED_NOTE.bytesize] == [47, 94]
+      end
+      d.check("a toast was added") { TOASTS.length == 1 }
+      d.check("it quotes the value") do
+        toast_titles(window.overlay) ==
+          ["<span font_features='tnum=1'>\u2018#{ANNOUNCED_NOTE}\u2019  copied to clipboard</span>"]
+      end
+      window.overlay.dismiss_all
+      TOASTS.clear
+      window.window.activate_action("copy-val", GLib::Variant.new("0:4"))
+    end
+  end
+
+  d.step("a 96-byte value of 48 characters is copied silently") do
+    app.windows.first.then do |window|
+      d.check("the value is 48 characters and 96 bytes") do
+        [SILENT_NOTE.length, SILENT_NOTE.bytesize] == [48, 96]
+      end
+      d.check("no toast was added, as upstream adds none past the cutoff") do
+        TOASTS.empty?
+      end
+      settle_until(40) { toast_widgets(window.overlay).empty? }
+      d.check("and none is on screen") { toast_widgets(window.overlay).empty? }
+      d.check("the title upstream builds for it and shows nowhere is ported") do
+        Bobby::Actions::WinCopyVal::LONG_TITLE == "Copied to clipboard"
+      end
+      read_clipboard(:silent)
+    end
+  end
+
+  d.step("the long value reached the clipboard all the same") do
+    d.check("the read came back") { CLIPBOARD.key?(:silent) }
+    d.check("it is the whole ninety-six bytes") { CLIPBOARD[:silent] == SILENT_NOTE }
   end
 
   d.step("the view is a table too, read without a rowid") do
@@ -1137,7 +1386,24 @@ GtkDriver.drive(APP, shots: SHOTS) do |d, app|
   # -- Reload ----------------------------------------------------------------
 
   d.step("the big table is opened, which is one that can be scrolled") do
+    app.windows.first.window.present
     app.windows.first.window.activate_action("table", GLib::Variant.new("3"))
+  end
+
+  # Four hundred rows take more than one tick to lay out, and until the
+  # ScrolledWindow has been allocated its adjustments have an upper bound of
+  # zero and clamp anything set on them to it. So the table is given a tick to
+  # settle, and the allocation is asserted rather than assumed — otherwise the
+  # scroll offsets the next step sets would silently be zero and the reload
+  # would be seen to carry a scroll position it never had.
+  d.step("the big table lays out, so its scroll offsets mean something") do
+    app.windows.first.content.scroller.then do |scroller|
+      settle_until { scroller.allocated_height.positive? }
+      d.check("the scrolled window has a height") { scroller.allocated_height.positive? }
+      d.check("so the vertical adjustment has a range to scroll in") do
+        scroller.vadjustment.upper > scroller.vadjustment.page_size
+      end
+    end
   end
 
   d.step("win.reload re-reads the file, keeping the table and the scroll") do
@@ -1473,7 +1739,15 @@ GtkDriver.drive(APP, shots: SHOTS) do |d, app|
       d.check("its switcher's Views section is empty") { window.switcher.views.empty? }
       d.check("its title is that file's basename") { window.window.title == "other.db" }
     end
-    d.shot("14-second-window", app.windows.last.window)
+    # A brand new window has nothing to paint until it has been realised and
+    # allocated, and a snapshot of it then produces no render node at all.
+    app.windows.last.window.then do |second|
+      settle_until(20) { second.realized? && second.allocated_height.positive? }
+      d.check("the second window has been realised and laid out") do
+        second.realized? && second.allocated_height.positive?
+      end
+      d.shot("14-second-window", second)
+    end
   end
 
   d.step("opening a file that is already open raises its window instead") do

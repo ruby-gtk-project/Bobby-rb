@@ -4,6 +4,7 @@
 |---|---|
 | Upstream | `origin/main` (Rust, gtk4-rs + libadwaita) |
 | Port | `ruby` branch, `lib/bobby/**` |
+| Inventory taken at | port `28bb3a5`. The unit list below is still the unit list; the gap ids and the parity figures that were current when it was written are not. `PORTING.md` carries the current ones |
 | Declarative UI upstream | **none** — `git ls-tree -r --name-only origin/main` lists no `.ui`, no `.blp`, no `.css`, no `.gresource.xml`. Every widget is built in Rust builder chains |
 | GSettings schema | `data/studio.planetpeanut.Bobby.gschema.xml` — 4 keys (`row-numbers` b, `row-order` s/2 choices, `column-separator` s/4 choices, `monospace-font` b) |
 | `po/` catalogue | **none upstream.** No `po/`, no `LINGUAS`, no `POTFILES`, no `gettext`/`_()` call anywhere in `src/`. Every user-facing string is an inline Rust literal |
@@ -213,7 +214,7 @@ same way.
 | `src/log.rs` | `lib/bobby/log.rb` | logging | yes |
 | `src/gtk/util.rs` | `lib/bobby/util.rb` | clipboard; `widget_by_name` / `find_column_view` are unneeded in the port | yes |
 | `src/bobby/sqlite/{affinity,cache,column,database,row,table}.rs` | `lib/bobby/sqlite/*.rb` (same six names) | model | yes |
-| (inline `Settings::new("studio.planetpeanut.Bobby")` in 6 upstream files) | `lib/bobby/settings.rb` | **port-only**: the GSettings access upstream repeats inline, incl. the `<choices>` lookup `preferences.rs` does by hand | n/a |
+| (inline `Settings::new("studio.planetpeanut.Bobby")` in 6 upstream files) | `lib/bobby/settings.rb` | **port-only**: the GSettings access upstream repeats inline, incl. the `<choices>` lookup `preferences.rs` does by hand | yes |
 
 ---
 

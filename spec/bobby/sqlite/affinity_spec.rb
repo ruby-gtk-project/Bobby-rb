@@ -149,6 +149,46 @@ RSpec.describe Bobby::Sqlite::Affinity do
     it "shows ??? for a variant that lost its value" do
       expect(described_class.new(type: described_class::TEXT).to_s).to eq("???")
     end
+
+    # Upstream renders a REAL with `f.to_string()`, which is Rust's
+    # `impl Display for f64`: the shortest decimal that reads back as the same
+    # f64, written positionally, with no trailing ".0" and never in exponent
+    # notation. Ruby's Float#to_s does the trailing ".0" and does use an
+    # exponent, so a column of prices or ids that SQLite stored as REAL would
+    # otherwise read differently in the two apps — in the cell, in the tooltip
+    # and on the clipboard, which all go through this one method.
+    #
+    # The values are read back out of a real database rather than constructed,
+    # because what the app renders is whatever the sqlite3 gem hands back.
+    context "with a REAL read out of a database" do
+      def stored(literal)
+        SQLite3::Database.new(":memory:").then do |db|
+          db.execute("CREATE TABLE t (a REAL)")
+          db.execute("INSERT INTO t VALUES (#{literal})")
+          described_class.from_value(db.execute("SELECT a FROM t").first.first)
+        end
+      end
+
+      it "drops the trailing .0 of an integral value" do
+        expect(stored("1.0").to_s).to eq("1")
+      end
+
+      it "keeps the digits of a fractional value" do
+        expect(stored("1.5").to_s).to eq("1.5")
+      end
+
+      it "writes a very large value in full rather than as an exponent" do
+        expect(stored("1e300").to_s).to eq("1#{'0' * 300}")
+      end
+
+      it "writes a very small value in full rather than as an exponent" do
+        expect(stored("1e-300").to_s).to eq("0.#{'0' * 299}1")
+      end
+
+      it "names the type beside the same text in the tooltip" do
+        expect(stored("1.0").tooltip).to eq("REAL 1")
+      end
+    end
   end
 
   describe "#dimmed?" do

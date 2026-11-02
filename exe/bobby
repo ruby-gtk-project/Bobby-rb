@@ -1,6 +1,13 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+#   Bobby, browse SQLite files
+#   Copyright (C) 2025  Hylke Bons (hello@planetpeanut.studio)
+#   Copyright (C) 2026  ruby-gtk-project, for the Ruby port
+#
+#   This program is free software: you can redistribute it and/or modify it
+#   under the terms of the GNU General Public License v3 or any later version.
+
 # Upstream's main() prints --help, --version, --deps and --env and leaves
 # before it ever asks for a display, because gtk_init only runs inside
 # app.run(). The Ruby gtk4 gem calls gtk_init while it is being required, so

@@ -1,5 +1,12 @@
 # frozen_string_literal: true
 
+#   Bobby, browse SQLite files
+#   Copyright (C) 2025  Hylke Bons (hello@planetpeanut.studio)
+#   Copyright (C) 2026  ruby-gtk-project, for the Ruby port
+#
+#   This program is free software: you can redistribute it and/or modify it
+#   under the terms of the GNU General Public License v3 or any later version.
+
 require_relative 'affinity'
 
 module Bobby
@@ -8,9 +15,11 @@ module Bobby
     #
     # Ported from upstream's src/bobby/sqlite/column.rs, including its
     # Database#columns, which reads PRAGMA table_info. #unique is always
-    # false. Upstream's is always false too — column.rs:36 is `let unique =
-    # false;` with a note to revisit it. Neither app reads PRAGMA index_list,
-    # which is the pragma that would answer whether a column is unique.
+    # false, so neither app tells the user which columns are unique: the
+    # pragma that would answer it is PRAGMA index_list, and nothing in either
+    # app reads it. Upstream carries the same debt — column.rs:36 is
+    # `let unique = false;` with a note to revisit it — and the port owes the
+    # feature the moment upstream builds it.
     #
     # Column.index is upstream's `Column::default()`, inserted at position 0
     # by the content widget to reserve a column for the row numbers.

@@ -16,12 +16,28 @@ begin
   end
 rescue LoadError => error
   # check the error message and re-raise when unexpected
-  raise error unless error.message.include?("kettle")
+  unless error.message.include?("kettle")
+    raise error
+  end
 end
 
 # External RSpec & related config
-require "kettle/test/rspec"
-# `kettle/test/rspec` installs harness helpers documented in spec/README.md.
+#
+# NOTE: the harness is a development dependency that the devShell and the CI
+#       job do not install, and the root bundle does not currently resolve, so
+#       it can be absent. The rescue LoadError handles that scenario the same
+#       way the kettle-soup-cover require above does, which is what lets
+#       `--require spec_helper` — and so `.rspec`, `rake spec` and the command
+#       the devShell prints — run the suite at all.
+begin
+  require "kettle/test/rspec"
+  # `kettle/test/rspec` installs harness helpers documented in spec/README.md.
+rescue LoadError => error
+  # check the error message and re-raise when unexpected
+  unless error.message.include?("kettle")
+    raise error
+  end
+end
 
 # This library
 require "bobby/rb"

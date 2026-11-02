@@ -38,19 +38,19 @@
     <screenshots>
         <screenshot type="default">
             <image>
-                https://raw.githubusercontent.com/hbons/Bobby/main/data/screenshots/screenshot-default.png
+                https://raw.githubusercontent.com/ruby-gtk-project/Bobby-rb/ruby/data/screenshots/screenshot-default.png
             </image>
             <caption>Browse SQLite files</caption>
         </screenshot>
         <screenshot>
             <image>
-                https://raw.githubusercontent.com/hbons/Bobby/main/data/screenshots/screenshot-extra-1.png
+                https://raw.githubusercontent.com/ruby-gtk-project/Bobby-rb/ruby/data/screenshots/screenshot-extra-1.png
             </image>
             <caption>Preferences dialog</caption>
         </screenshot>
         <screenshot>
             <image>
-                https://raw.githubusercontent.com/hbons/Bobby/main/data/screenshots/screenshot-extra-2.png
+                https://raw.githubusercontent.com/ruby-gtk-project/Bobby-rb/ruby/data/screenshots/screenshot-extra-2.png
             </image>
             <caption>Empty page</caption>
         </screenshot>

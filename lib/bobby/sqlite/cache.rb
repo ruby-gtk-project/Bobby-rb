@@ -1,5 +1,12 @@
 # frozen_string_literal: true
 
+#   Bobby, browse SQLite files
+#   Copyright (C) 2025  Hylke Bons (hello@planetpeanut.studio)
+#   Copyright (C) 2026  ruby-gtk-project, for the Ruby port
+#
+#   This program is free software: you can redistribute it and/or modify it
+#   under the terms of the GNU General Public License v3 or any later version.
+
 require 'gtk4'
 
 require_relative 'row'
@@ -34,10 +41,13 @@ module Bobby
     # I did not build lazy paging, so opening a large table reads every row
     # into memory before the window appears and the app no longer scrolls
     # tables of any size. I am an idiot. Upstream:
-    # src/bobby/sqlite/cache.rs. Port: lib/bobby/sqlite/cache.rb:51-56.
+    # src/bobby/sqlite/cache.rs. Port: #row_objects and #model below.
     #
-    # See FINDINGS.md for what was and was not established about the bindings
-    # and for the alternatives that were never tried.
+    # The two alternatives that need no GInterface — a Gtk::SliceListModel
+    # over a store replaced as the view scrolls, and repopulating this store
+    # from the ScrolledWindow's vertical adjustment — have been run against a
+    # real table and neither is lazy paging. FINDINGS.md, under About the
+    # bindings, says what each of them actually did.
     class Cache
       def initialize(database, table)
         @database = database
