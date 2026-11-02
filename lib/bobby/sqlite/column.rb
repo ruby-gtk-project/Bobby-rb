@@ -9,8 +9,8 @@ module Bobby
     # Ported from upstream's src/bobby/sqlite/column.rs, including its
     # Database#columns, which reads PRAGMA table_info. #unique is always
     # false. Upstream's is always false too — column.rs:36 is `let unique =
-    # false; // TODO`. Neither app reads PRAGMA index_list, which is the
-    # pragma that would answer whether a column is unique.
+    # false;` with a note to revisit it. Neither app reads PRAGMA index_list,
+    # which is the pragma that would answer whether a column is unique.
     #
     # Column.index is upstream's `Column::default()`, inserted at position 0
     # by the content widget to reserve a column for the row numbers.

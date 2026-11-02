@@ -27,8 +27,8 @@ module Bobby
 
       TYPES = [NUMERIC, INTEGER, REAL, TEXT, BLOB, NULL].freeze
 
-      # Upstream's Display for a value-less NULL or NUMERIC.
-      PLACEHOLDER = '—'
+      # U+2014 "Em Dash". Upstream's Display for a value-less NULL or NUMERIC.
+      EM_DASH = '—'
 
       # Upstream's Display catch-all: a variant that should carry a value but
       # does not, which only happens for a declared-but-unread column.
@@ -50,16 +50,45 @@ module Bobby
           end
         end
 
-        # Wraps one value as the sqlite3 gem hands it back. SQLite3::Blob is a
-        # String subclass, so it has to be tested before String.
+        # Wraps one value as the sqlite3 gem hands it back, which is upstream's
+        # match on rusqlite's ValueRef: Null, Integer, Real, Text, Blob.
+        #
+        # The gem has no distinct class for a blob read out of a row — both
+        # SQLITE_TEXT and SQLITE_BLOB come back as String, and SQLite3::Blob is
+        # a write-side wrapper that only ever appears in a value the caller
+        # built. What separates them is the encoding the gem stamps on the
+        # string: a text column arrives in the database's encoding (UTF-8), a
+        # blob arrives as ASCII-8BIT. So the encoding is what is tested, with
+        # SQLite3::Blob accepted too for a value that was constructed rather
+        # than read.
         def from_value(value)
           case value
           when nil then new(type: NULL)
           when Integer then new(type: INTEGER, value: value)
           when Float then new(type: REAL, value: value)
-          when SQLite3::Blob then blob(value)
+          when String then from_string(value)
           else new(type: TEXT, value: value.to_s)
           end
+        end
+
+        def from_string(string)
+          if blob?(string)
+            blob(string)
+          else
+            new(type: TEXT, value: lossy_utf8(string))
+          end
+        end
+
+        def blob?(string)
+          string.is_a?(SQLite3::Blob) || string.encoding == Encoding::BINARY
+        end
+
+        # Upstream reads a text value with String::from_utf8_lossy, so bytes
+        # that are not valid UTF-8 become U+FFFD. Ruby needs the same: a
+        # string that claims UTF-8 but holds invalid bytes raises as soon as
+        # anything in GTK reads it.
+        def lossy_utf8(string)
+          string.dup.force_encoding(Encoding::UTF_8).scrub
         end
 
         def blob(bytes)
@@ -104,7 +133,7 @@ module Bobby
       def to_s
         case type
         when BLOB then blob_to_s
-        when NULL then PLACEHOLDER
+        when NULL then EM_DASH
         when NUMERIC then numeric_to_s
         else value_to_s
         end
@@ -148,7 +177,7 @@ module Bobby
 
         def numeric_to_s
           if value.nil?
-            PLACEHOLDER
+            EM_DASH
           else
             value.to_s
           end

@@ -14,13 +14,13 @@ module Bobby
   # commas or markdown) and monospace-font (b, false). The schema file itself
   # is carried over unchanged, under data/.
   #
-  # Upstream builds a fresh gio::Settings at every call site and leaves a
-  # "TODO" beside each one; here there is one object, reached as
+  # Upstream builds a fresh gio::Settings at every call site and marks each
+  # one for consolidation; here there is one object, reached as
   # Settings.instance, so the change handlers and the preference bindings all
   # talk to the same GSettings.
   #
-  # Upstream also leaves a TODO in src/app.rs about pointing
-  # GSETTINGS_SCHEMA_DIR at ./data when it is unset. That is done here, so a
+  # Upstream also notes in src/app.rs that GSETTINGS_SCHEMA_DIR should point
+  # at ./data when it is unset, without doing it. That is done here, so a
   # checkout runs against the compiled schema in data/ without installing
   # anything. The other branch — leaving an already-set GSETTINGS_SCHEMA_DIR
   # alone, which is what a Flatpak would set — has never run: the port has no
@@ -50,7 +50,7 @@ module Bobby
     class << self
       def instance = @instance ||= new
 
-      # Implements upstream's GSETTINGS_SCHEMA_DIR TODO.
+      # The GSETTINGS_SCHEMA_DIR default upstream describes but never sets.
       def install_schema_dir
         if !ENV.key?('GSETTINGS_SCHEMA_DIR') && File.exist?(File.join(SCHEMA_DIR, 'gschemas.compiled'))
           ENV['GSETTINGS_SCHEMA_DIR'] = SCHEMA_DIR

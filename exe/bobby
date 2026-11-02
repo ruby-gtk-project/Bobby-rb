@@ -1,6 +1,15 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+# Upstream's main() prints --help, --version, --deps and --env and leaves
+# before it ever asks for a display, because gtk_init only runs inside
+# app.run(). The Ruby gtk4 gem calls gtk_init while it is being required, so
+# the preflight is required and run on its own first and the rest of the app
+# is loaded only once the process has decided it is going to open a window.
+require "bobby/preflight"
+
+Bobby::Preflight.run(ARGV)
+
 require "bobby"
 
-Bobby::Application.new.start
+Bobby::Application.new.run_gui(ARGV)

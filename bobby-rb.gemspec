@@ -74,6 +74,7 @@ Gem::Specification.new do |spec|
     CHANGELOG.md
     FINDINGS.md
     LICENSE.md
+    LICENSE.txt
     README.md
     sig/bobby/rb.rbs
   ].select { |path| File.exist?(File.join(gemspec_root, path)) }

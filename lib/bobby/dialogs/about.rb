@@ -7,8 +7,8 @@ require_relative '../app'
 module Bobby
   # AboutDialog credits the app.
   #
-  # Ported from upstream's src/gtk/dialogs/about.rs. Upstream leaves a TODO
-  # about using AboutDialog::from_appdata() inside Flatpak, where the
+  # Ported from upstream's src/gtk/dialogs/about.rs. Upstream wonders in a
+  # comment about using AboutDialog::from_appdata() inside Flatpak, where the
   # metainfo file is on disk; the fields below are the ones it sets by hand.
   class AboutDialog < Adwaita::AboutDialog
     DEVELOPER = 'Hylke Bons'

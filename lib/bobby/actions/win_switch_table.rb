@@ -12,9 +12,9 @@ module Bobby
     # win.table::<index>.
     #
     # Upstream takes the layout box, the table list and the switcher as
-    # arguments and reaches into them from the handler, with a "TODO: Ugly"
-    # beside the call; here the window owns all three and does the swap, so
-    # the action only has to say which index was asked for.
+    # arguments and reaches into them from the handler, calling the shape ugly
+    # in a comment beside it; here the window owns all three and does the
+    # swap, so the action only has to say which index was asked for.
     class WinSwitchTable
       NAME = 'table'
 

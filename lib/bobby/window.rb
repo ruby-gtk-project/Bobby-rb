@@ -39,7 +39,7 @@ module Bobby
   # showing.
   #
   # The reload banner is built but never revealed, as upstream's is — the
-  # file-change watch it belongs to is a TODO there. Its button activates
+  # file-change watch it belongs to is unwritten there. Its button activates
   # win.reload; upstream points it at "app.reload", which no action answers.
   class Window
     DEFAULT_WIDTH = 960
@@ -77,7 +77,6 @@ module Bobby
 
         toolbar_view.tap do |view|
           view.add_top_bar(header_bar)
-          view.top_bar_style = :flat
 
           header_bar.pack_end(main_menu.build)
         end
@@ -114,7 +113,6 @@ module Bobby
       @key = nil
       @database = nil
       window.title = EMPTY_TITLE
-      toolbar_view.top_bar_style = :flat
       toolbar_view.content = empty_page
     end
 
@@ -124,7 +122,6 @@ module Bobby
       @database = nil
       error_page.description = message
       window.title = title_for(file)
-      toolbar_view.top_bar_style = :flat
       toolbar_view.content = error_page
     end
 
@@ -196,7 +193,14 @@ module Bobby
       end
     end
 
-    def toolbar_view = @toolbar_view ||= Adwaita::ToolbarView.new
+    # Flat is set once here and never set back, as upstream's window_new does:
+    # showing content raises the border and nothing lowers it again, so a file
+    # that fails to reopen keeps the border its predecessor earned.
+    def toolbar_view
+      @toolbar_view ||= Adwaita::ToolbarView.new.tap do |view|
+        view.top_bar_style = :flat
+      end
+    end
 
     def header_bar = @header_bar ||= Adwaita::HeaderBar.new
 

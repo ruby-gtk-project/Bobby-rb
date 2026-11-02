@@ -9,8 +9,9 @@ require_relative 'actions/app_preferences'
 require_relative 'actions/app_quit'
 require_relative 'actions/app_shortcuts'
 require_relative 'app'
-require_relative 'cli'
+require_relative 'icons'
 require_relative 'log'
+require_relative 'preflight'
 require_relative 'settings'
 require_relative 'window'
 
@@ -21,9 +22,8 @@ module Bobby
   # Ported from upstream's src/gtk/lib.rs — the `impl Gui for App` that builds
   # the libadwaita Application, connects "open" and "activate", watches three
   # GSettings keys so an open window follows a changed preference, and
-  # registers the five app actions. #start is upstream's src/main.rs: the
-  # version line on DEBUG, the refusal to run as root, and the CLI options
-  # when there is a terminal to print them to.
+  # registers the five app actions. #start is upstream's src/main.rs: Preflight
+  # for the half that runs before a display is needed, then #run_gui.
   #
   # HANDLES_OPEN is what makes "bobby file.db" and a drag-and-drop both arrive
   # at "open" rather than "activate", so every way of opening a file goes
@@ -41,7 +41,6 @@ module Bobby
     FLAGS = :handles_open
 
     NO_LOCAL_PATH = 'Selected file has no local path'
-    ROOT_REFUSAL = 'Cannot run as root'
 
     def initialize(app_info: App.new, settings: Settings.instance)
       @app_info = app_info
@@ -53,18 +52,15 @@ module Bobby
 
     # Upstream's main(), in order.
     def start(argv = ARGV)
-      Log.debug_base(App.version_string)
-
-      if App.runs_as_root?
-        Log.error_and_exit(ROOT_REFUSAL)
-      end
-
-      if App.runs_in_terminal?
-        cli.parse(argv)
-      end
-
-      build.run([App::COMMAND, *argv])
+      Preflight.run(argv, app_info: app_info)
+      run_gui(argv)
     end
+
+    # Upstream's gui_run(): build the application and hand it the argument
+    # vector, program name first, so HANDLES_OPEN turns a file argument into
+    # an "open" signal. exe/bobby calls this rather than #start because it has
+    # already run the preflight, before the gtk4 gem was loaded.
+    def run_gui(argv = ARGV) = build.run([App::COMMAND, *argv])
 
     def build
       app.tap do |a|
@@ -80,8 +76,6 @@ module Bobby
     def run(argv = []) = app.run(argv)
 
     def app = @app ||= create_app
-
-    def cli = @cli ||= Cli.new(app_info)
 
     def app_actions
       @app_actions ||= [
@@ -119,6 +113,7 @@ module Bobby
 
       def create_app
         Adwaita.init
+        Icons.install
         Gtk::Application.new(App::ID, FLAGS)
       end
 

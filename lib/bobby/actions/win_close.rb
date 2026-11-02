@@ -7,8 +7,8 @@ module Bobby
     # win.close closes this window.
     #
     # Ported from upstream's src/gtk/actions/win_close.rs, whose handler also
-    # carries a TODO about dropping the database from memory; the port closes
-    # the connection there, which is the thing that TODO is about.
+    # notes that the database should be dropped from memory without doing it;
+    # the port closes the connection there, which is that drop.
     class WinClose
       NAME = 'close'
       ACCELS = ['<Primary>w'].freeze

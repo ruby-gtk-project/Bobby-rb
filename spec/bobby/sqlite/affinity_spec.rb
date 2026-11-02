@@ -75,6 +75,62 @@ RSpec.describe Bobby::Sqlite::Affinity do
           .to eq([described_class::BLOB, 4, "DE AD BE EF"])
       end
     end
+
+    # The read path is the one the app actually uses, and it hands back no
+    # SQLite3::Blob: both SQLITE_TEXT and SQLITE_BLOB arrive as String, told
+    # apart only by the encoding the gem stamps on them. These examples read
+    # the values out of a real database so that the arm under test is the arm
+    # the ColumnView binds.
+    context "with values read out of a database" do
+      let(:row) do
+        SQLite3::Database.new(":memory:").then do |db|
+          db.execute("CREATE TABLE t (a BLOB, b TEXT, c REAL, d INTEGER, e TEXT)")
+          db.execute("INSERT INTO t VALUES (X'DEADBEEF', 'Ada', 1.5, 7, NULL)")
+          db.execute("SELECT * FROM t").first
+        end
+      end
+
+      let(:cells) { row.map { |value| described_class.from_value(value) } }
+
+      it "reads a blob column as BLOB" do
+        expect([cells[0].type, cells[0].length, cells[0].preview])
+          .to eq([described_class::BLOB, 4, "DE AD BE EF"])
+      end
+
+      it "shows a blob's byte count rather than its bytes" do
+        expect(cells[0].to_s).to eq("4 BYTES")
+      end
+
+      it "dims a blob" do
+        expect(cells[0].dimmed?).to be(true)
+      end
+
+      it "reads the other four columns as themselves" do
+        expect(cells.drop(1).map(&:type)).to eq(
+          [
+            described_class::TEXT,
+            described_class::REAL,
+            described_class::INTEGER,
+            described_class::NULL,
+          ],
+        )
+      end
+
+      it "leaves a text value undimmed" do
+        expect([cells[1].to_s, cells[1].dimmed?]).to eq(["Ada", false])
+      end
+    end
+
+    it "replaces invalid bytes in a text value rather than carrying them" do
+      SQLite3::Database.new(":memory:").then do |db|
+        db.execute("CREATE TABLE t (a TEXT)")
+        db.execute("INSERT INTO t VALUES (CAST(X'41C341' AS TEXT))")
+
+        described_class.from_value(db.execute("SELECT a FROM t").first.first).then do |affinity|
+          expect([affinity.type, affinity.to_s.valid_encoding?]).to eq([described_class::TEXT, true])
+        end
+      end
+    end
   end
 
   describe "#to_s" do
