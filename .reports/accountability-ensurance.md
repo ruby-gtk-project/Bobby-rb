@@ -2,185 +2,199 @@
 
 | | |
 |---|---|
-| Port | `ruby` branch |
-| Scanned | `lib/`, `exe/`, `data/`, `spec/`, `.reports/`, root prose |
-| Script hits | `find-excuses.sh .` → 1 (in `.reports/component-inventory.md`) |
-| Gaps found by reading | **5** |
-| Verdict | **NOT CLEAR — 5 excuses are load-bearing** |
+| Upstream | `origin/main` @ `5ea72fe` |
+| Port | `ruby` @ `28bb3a5` |
+| `find-excuses.sh` hits in prose and code | **0** outside `.reports/` |
+| Marker grep over `lib/`, `exe/`, `spec/` | 14 hits, **13 of them describing upstream's TODOs**, 1 soft hit |
+| Gaps found with no record anywhere | **5** |
+| False statements in `FINDINGS.md` | **2** |
 
-The script found one hit. Reading found five, which is the expected ratio: the
-port's excuses are not written with the words the scanner looks for. They are
-written in careful, well-informed prose that explains a binding limitation and
-then, in the same sentence, stops. That is the exact mechanism this skill
-exists to break — a reader who meets a plausible obstacle stops reading and
-files the feature as settled.
+## The scans
 
-A note on the port's style, because it matters to the reading: every class
-carries a comment naming its upstream file and what it does differently. Most
-of those comments are **correspondences** — they say where a thing moved to,
-and they are good documentation, not excuses. `util.rb`'s explanation that
-`widget_by_name` has nothing to search for because the widgets are memoized
-accessors is a correspondence: the behaviour is fully present, in a named
-place. What follows is only the subset where the sentence describes something
-the user does not get.
+```
+$ find-excuses.sh .
+.reports/accountability-ensurance.md:107  No Ruby equivalent
+.reports/accountability-ensurance.md:110  No Ruby equivalent
+.reports/accountability-ensurance.md:169  skipped
+```
+
+Three hits, all in this report's own previous revision quoting the skill's
+own hit table. Nothing in `README.md`, `FINDINGS.md`, `AGENTS.md`,
+`CHANGELOG.md`, `CLAUDE.md`, `SECURITY.md` or any source file.
+
+```
+$ grep -rniE 'TODO|FIXME|not implemented|for now|in a future|XXX|HACK|unimplemented|placeholder|later|deferred|stub' lib exe spec
+```
+
+Fourteen hits. Thirteen are the port describing what **upstream's** TODO was
+and what the port built instead — `window.rb:42`, `util.rb:13`,
+`settings.rb:18,22,53`, `win_switch_table.rb:15`, `win_close.rb:10-11`,
+`about.rb:10`, `content.rb:81` (an upstream `HACK` reproduced on purpose),
+plus three `PLACEHOLDER` constant references in `affinity.rb` and one
+`stub_env` mention in `spec/README.md`. Those are navigation, not excuses, and
+every one of them names the behaviour the port has in place of the TODO. They
+stand.
+
+`FINDINGS.md` itself is in the right register throughout: first person,
+admission first, the stupidity slot filled with stupidity and nothing else,
+upstream and port cited with file:line. Seven open entries, four closed ones,
+and a separate bindings section. That is the format working.
+
+So the usual failure — a paragraph laundering a skip into a decision — has not
+happened here. The failure that *has* happened is the other one.
 
 ---
 
-## A1 — `lib/bobby/sqlite/cache.rb:34-39`
+## What is missing from the record
 
-The worst one, because it is the most convincing.
+### Three defects nobody wrote down, two of which break a shipped feature
 
-```ruby
-# ruby-gnome cannot implement a GInterface's virtual functions from Ruby,
-# so a custom Gio::ListModel is not available to the port and the lazy
-# paging has nowhere to live. The table is read once, in order, into a
-# Gio::ListStore, which answers the model interface from C. The visible
-# behaviour is identical; the cost is that the whole table is held in
-# memory rather than a window of it.
-```
+These were found by running the port, not by reading it. They are in no
+document, no comment and no test.
 
-Three sentences, three failures. "has nowhere to live" presents the omission as
-a property of the world. "**The visible behaviour is identical**" is false:
-upstream's `data/studio.planetpeanut.Bobby.metainfo.xml` advertises "Scroll
-through tables and views of any size", and a port that reads a million rows and
-allocates a million GObjects before the window appears does not behave
-identically — it behaves identically on the small tables somebody tested.
-"the cost is that the whole table is held in memory" relabels a missing feature
-as a tradeoff, with no party named as having chosen it.
+> I did not make a BLOB cell show its size — a table of binary data shows raw
+> bytes where upstream shows `2 BYTES`, the cell is not dimmed, the tooltip
+> says `TEXT` instead of `BLOB 41 42 …`, and a blob whose bytes are not valid
+> UTF-8 raises inside the bind handler so **the table does not draw at all** —
+> because I am an idiot who tested a class the database layer never produces.
+> Upstream: `src/bobby/sqlite/row.rs:72-78` maps `ValueRef::Blob(b)` to
+> `Affinity::BLOB(len, hex_preview)`; `affinity.rs` Display renders
+> `{length} BYTES`.
+> Port: `lib/bobby/sqlite/affinity.rb:60` matches `when SQLite3::Blob`, and
+> the `sqlite3` gem returns blobs as plain `ASCII-8BIT` `String`. Proven:
+> `classes: [String, …] encodings: ["ASCII-8BIT", …]`,
+> `type=text to_s="\xDE\xAD" dimmed=false tooltip="TEXT \xDE\xAD"`.
+> The crash path is `lib/bobby/widgets/content.rb:225` →
+> `lib/bobby/widgets/item.rb:103` → `:120` → `:34`
+> (`Encoding::UndefinedConversionError: "\xDE" from ASCII-8BIT to UTF-8`).
+> `spec/bobby/sqlite/affinity_spec.rb:72` and `:120` are green because they
+> build the blob by hand, which is the part that makes this my fault and not
+> bad luck.
 
-The binding limitation is also narrower than stated. A custom `Gio::ListModel`
-is one way to page; `Gtk::SliceListModel` over a replaceable store, or
-repopulating a `Gio::ListStore` from the scroll adjustment, reach the same
-behaviour with no Ruby-side `GInterface`. The comment did not say "I tried
-these and they failed"; it said the paging has nowhere to live.
+> I did not make Copy work. Ctrl+C copies nothing, the context menu's **Copy**
+> and **Copy Row** copy nothing, and the toast still says it worked — because
+> I am too stupid to check a method name against the bindings I was writing
+> against.
+> Upstream: `src/gtk/util.rs:copy_to_clipboard` → `clipboard.set_text(s)`.
+> Port: `lib/bobby/util.rb:27` calls `display.clipboard.set_text(text)`.
+> `Gdk::Clipboard` has no `set_text`; driving the real `win.copy-row` action
+> gives `undefined method 'set_text' for an instance of Gdk::Clipboard`. The
+> method that exists is `#set`. Copying is one of the three features the
+> metainfo advertises (`Copy rows or cells to the clipboard`).
 
-**Rewrite to:**
+> I did not make `bobby --version` work without a display, so the four CLI
+> options die with a GTK backtrace on any headless machine, which is most of
+> the machines that would run `--version`.
+> Upstream: `src/main.rs:36-46` parses the arguments before `gui_run()`, and
+> `gtk_init` only happens inside `app.run()`.
+> Port: `exe/bobby:4` requires `bobby`, `lib/bobby.rb:3` requires
+> `bobby/application`, and the `gtk4` gem calls `gtk_init` at require time.
+> Measured: no display → exit 1 and a `Gtk::InitError` trace; with
+> `gtk4-broadwayd` running → `bobby 0.1.0`, exit 0.
 
-> I did not build lazy paging, so opening a large table reads every row into
-> memory before the window appears and the app no longer scrolls tables of any
-> size. I am an idiot. Upstream: `src/bobby/sqlite/cache.rs` — a
-> `gio::ListModel` fetching 256-row pages around the requested index and
-> evicting beyond ±256. Port: `lib/bobby/sqlite/cache.rb:51-56` — the whole
-> table, eagerly, into a `Gio::ListStore`.
+### Two more, smaller, equally unrecorded
 
-Put the ruby-gnome `GInterface` finding, and the `SliceListModel` options I
-have not tried, in `FINDINGS.md` — not in this sentence.
+> I did not put `sqlite3` in `nix/Gemfile`, so the port cannot be loaded in
+> its own documented development environment or started from its own Nix
+> package, and I am an idiot who wrote a comment claiming that file "holds the
+> gemspec's runtime dependencies only" while it holds two of the three.
+> Port: `nix/Gemfile:11-12` lists `adwaita` and `gtk4`;
+> `bobby-rb.gemspec:121` declares `sqlite3`; `lib/bobby/app.rb:3` and
+> `lib/bobby/sqlite/database.rb:3` require it at load time.
+> Measured: `nix develop --command ruby -Ilib -e 'require "bobby"'` →
+> `cannot load such file -- sqlite3 (LoadError)` at `lib/bobby.rb:3`.
+> `flake.nix:102` builds `packages.default` from the same bundle.
 
-## A2 — `lib/bobby/sqlite/column.rb:10-13`
+> I did not ship a licence. There is no `LICENSE`, no `COPYING` and no
+> copyright header on any of the 31 files in `lib/` — for a GPLv3 program
+> whose gemspec says `GPL-3.0-or-later` and whose about dialog says
+> `License::GPL_3_0` — because I am an idiot who copied the data files and not
+> the one file that says anyone may have them.
+> Upstream: `LICENSE.txt`, plus a five-line GPLv3 header on all 34 `.rs` files.
+> Port: nothing.
 
-```ruby
-# #unique is always false
-# there — the pragma does not report it and upstream left the lookup as a
-# TODO — so it is false here too rather than quietly guessed.
-```
+### Two divergences recorded only in a class comment
 
-The upstream half is accurate and the row is at parity: upstream's
-`src/bobby/sqlite/column.rs:36` has `let unique = false; // TODO`. But
-"**rather than quietly guessed**" reframes copying an upstream TODO as a
-principled choice the port made, which converts an inherited debt into port
-architecture. The next reader will not know there is anything owed.
+Neither is a defect; both are the port deliberately differing from the spec,
+and `FINDINGS.md` is where a reader looks for that.
 
-**Rewrite to:** state that `Column#unique` is always false, that upstream's is
-too, and that neither reads the `PRAGMA index_list` that would answer it. No
-clause praising the port for it.
+- The reload banner. Upstream `src/gtk/windows/window.rs:350` targets `app.reload`, an action that exists nowhere upstream, so upstream's banner button is inert. The port targets `win.reload` (`lib/bobby/window.rb:214`) and works. Said in a comment at `window.rb:42-43`, nowhere else.
+- `Gtk::Application` standing in for `Adw::Application` (`lib/bobby/application.rb:40-42`). The sibling substitution for `Adw::ApplicationWindow` **is** in `FINDINGS.md`; this one is not.
 
-## A3 — `lib/bobby/dialogs/shortcuts.rb:11-12`
-
-```ruby
-# Upstream also carries a commented
-# out "Jump To Row" item against a shortcut it has not built yet, which is
-# left out here rather than listed as something the app cannot do.
-```
-
-"which is left out here rather than listed as something the app cannot do"
-argues for the omission. The decision is right — upstream's item is commented
-out, so listing it would advertise a shortcut neither app has — but a sentence
-that argues is a sentence a later reader treats as closed. State the fact; drop
-the justification.
-
-**Rewrite to:** "Upstream's `shortcuts.rs:50` has a commented-out 'Jump To Row'
-`<Primary>l`. Neither app implements it, so neither dialog lists it."
-
-## A4 — `.reports/component-inventory.md:77` — the script's one hit
-
-```
-| `src/gtk/util.rs` | — | No Ruby equivalent | ... |
-```
-
-"**No Ruby equivalent**" in a parity ledger's status column is a verdict of
-not-applicable, and the skill is explicit that the analogue is always the
-behaviour, which always has one. In this case the behaviour genuinely is fully
-present — see the correspondence row in `component-parity.md` naming all nine
-call sites — so the finding is the wording, not a missing feature.
-
-**Rewrite to:** `Behaviour at Window#header_bar / #toolbar_view / #switcher,
-Content#column_view` — the located correspondence, not a verdict.
-
-Better: delete `.reports/component-inventory.md`. It describes a `lib/` with
-three skeleton files that no longer exists, it states "**no** user-facing
-component below is implemented" when 35 files now are, and
-`component-identification.md` supersedes it. A stale ledger that reads as
-current is the same hazard by another route.
-
-## A5 — the omissions with no sentence at all
-
-The skill's rule is about sentences a reader could mistake for a decision.
-Silence is the stronger version: the reader cannot even find the question.
-
-Nothing anywhere in the port records that these upstream files are absent:
-
-| Absent | Consequence |
-|---|---|
-| `data/studio.planetpeanut.Bobby.metainfo.xml` | no AppStream entry; 15 translations in 4 languages gone |
-| `data/studio.planetpeanut.Bobby.desktop` | no app-grid entry, no MIME association, `Exec=bobby %f` gone |
-| `data/icons/**` (2 SVG) | the empty state's `studio.planetpeanut.Bobby-symbolic` and the about dialog's icon both render as a broken image |
-| `data/screenshots/**` (4 PNG) | the metainfo's three captions point at nothing |
-| `studio.planetpeanut.Bobby{,.devel}.yml` + `.github/workflows/flatpak.yml` | upstream's only shipping channel; five `App`/`Settings` code paths written for Flatpak have never run |
-| `Bobby.doap` | no GNOME project description |
-
-And two things the port's own prose implies are done and are not:
-
-- `lib/bobby/app.rb:69-70` computes `desktop_file` and `appdata_file` paths, and
-  `lib/bobby/settings.rb:26-29` says "an installed copy — Flatpak sets the
-  variable — is left alone". All three read as if the packaging exists. It does
-  not; see `component-parity.md` G6.
-- `bobby-rb.gemspec` declares **zero runtime dependencies** while
-  `lib/bobby/app.rb:3`, `application.rb:3-4` and `sqlite/database.rb:3` require
-  `sqlite3`, `gtk4` and `adwaita` at load time. They sit in `Gemfile:63,68-69`,
-  a file whose own banner says it "is for local development ONLY". Nothing
-  anywhere says the installed gem cannot start. I reproduced the `LoadError`.
-
-**Each needs a line, in first person, in `FINDINGS.md`**, of the form:
-
-> I did not ship the desktop entry, so Bobby does not appear in the app grid
-> and a `.db` file has no "Open With → Bobby". I am an idiot. Upstream:
-> `data/studio.planetpeanut.Bobby.desktop`. Port: nothing.
+Also unrecorded, and visible: the port resets `toolbar_view.top_bar_style` to
+`:flat` when leaving the content state (`window.rb:117`, `:127`); upstream
+never sets it back.
 
 ---
 
-## Clear — comments I read and am not flagging
+## Two statements in `FINDINGS.md` that are not true
 
-So that a later pass does not re-litigate them. Each of these names where the
-behaviour lives, which is what makes it a correspondence rather than an excuse:
+This is the part that matters most, because both of them are reasons a future
+agent would not try again.
 
-| Location | Why it is clear |
-|---|---|
-| `lib/bobby/util.rb:10-20` | `widget_by_name` and `find_column_view` are tree walks replaced by named memoized accessors. Every one of upstream's nine call sites is accounted for; nothing the user does is missing |
-| `lib/bobby/settings.rb:16-29` | Upstream's nine `gio::Settings::new` sites each carry a `// TODO`; the port factors them into one object and **implements** upstream's `GSETTINGS_SCHEMA_DIR` TODO. Work added, not skipped |
-| `lib/bobby/actions/win_close.rb:9-11` | Names upstream's "remove database from memory" TODO and closes the connection. Implemented, not excused |
-| `lib/bobby/actions/win_switch_table.rb:14-17` | Names upstream's `// TODO: Ugly` and restructures it. Behaviour identical |
-| `lib/bobby/widgets/content.rb:81-83` | `HACK` labelled as upstream's `content_force_redraw`, and ported faithfully. A ported hack, not a skip |
-| `lib/bobby/window.rb:40-43` | Says the banner is never revealed **as upstream's is**, and that its action was repointed from the dead `app.reload` to `win.reload`. Both sides stated |
-| `lib/bobby/widgets/switcher.rb:24-26` | Names an upstream bug and says the port fixed it |
-| `lib/bobby/actions/win_copy_val.rb:21-28` | Says upstream builds a shorter title for a ≥96-character value and never shows it, and that the port matches; and that `MARKUP_ESCAPES` exists because ruby-gnome lacks `g_markup_escape_text`. A binding gap **worked around**, with the workaround in the file |
-| `lib/bobby/sqlite/database.rb:16-24` | Explains `immutable=1` and why `PRAGMA journal_mode` is the file-type test. Documentation |
-| `lib/bobby/sqlite/table.rb:6-13` | Explains that `TableName` validation is what makes identifier interpolation safe. Documentation of a real defence |
+**1.** Under *Still missing*:
 
-## What to do
+> "I could not take them, because this machine has no GTK 4 or libadwaita
+> (`pkg-config --modversion gtk4` fails), so the app cannot be started at all
+> here."
 
-1. Rewrite A1–A4 in the form above. A1 first; it is hiding the second-largest
-   functional gap in the port.
-2. Delete `.reports/component-inventory.md`.
-3. Create `FINDINGS.md` and put A5's eight omissions in it, first person, one
-   per line, each naming the upstream file and what the port has instead.
-4. Then build them. The record is not the work.
+`pkg-config --modversion gtk4` fails in the bare shell and answers **4.22.4**
+inside `nix develop`, which `CLAUDE.md` names as the setup step. GTK 4.22 has
+no offscreen backend, so `gtk4-broadwayd :N` plus
+`GDK_BACKEND=broadway BROADWAY_DISPLAY=:N` is what the `ruby-gtk-testing`
+skill's "no Xvfb needed" needs on this box. The app started on the first
+attempt. **The screenshots were takeable all along**, which converts
+`screenshot-default.png` and friends from "cannot" to "did not".
+
+**2.** Under *Fixed this round*:
+
+> "I have not seen the three window states render, because there is no GTK 4
+> on this machine to render them."
+
+All three render, and were photographed: the empty state (with the status
+page icon falling back to a broken-image placeholder, because nothing installs
+`data/icons/`), the content state (with the blob defect above plainly visible
+as `AB` where upstream shows `2 BYTES`) and the error state (`Unable to Open
+File` with the markup bold intact). The preferences and shortcuts dialogs were
+photographed too and match upstream item for item.
+
+Neither sentence is an excuse in the skill's sense — both are first person and
+both admit the omission. They are worse than an excuse in one respect: they
+are **false in a way that forecloses the work**. A reader who believes the
+machine cannot run GTK does not try, and the two crash-level defects above
+survive another round for exactly that reason. The verification section's
+honest list of what was and was not run is undermined by the same error:
+"Not performed, because the tools are absent from this machine: … starting the
+app." The tools were present.
+
+## One soft hit worth rewriting
+
+`lib/bobby/sqlite/column.rb:9-13`:
+
+> "`#unique` is always false. Upstream's is always false too — `column.rs:36`
+> is `let unique = false; // TODO`. Neither app reads `PRAGMA index_list`,
+> which is the pragma that would answer whether a column is unique."
+
+Parity genuinely holds — the field is dead on both sides and no UI reads it.
+But "upstream does this too" is on the skill's hit list for a reason: the
+sentence is written so a reader files the behaviour as settled rather than as
+a debt both projects carry. Two words fix it: say that **neither app tells the
+user which columns are unique, and the port owes that the moment upstream
+builds it**, rather than that neither app reads the pragma.
+
+## Where the accountability actually failed
+
+Not in the prose. `FINDINGS.md` is the most honest document in this
+repository and the format is doing its job on the seven gaps it names.
+
+It failed in **scope**. The document covers what the author knew he had
+skipped — packaging, paging, screenshots, the lockfile — and covers it well.
+It does not cover what he never found out, because he believed he could not
+run the app, and the suite that would have told him instead cannot be invoked
+from the repository at all (see the test-parity report). So the record is
+complete about the known unknowns and silent about two defects that break
+shipped features in the first thirty seconds of use.
+
+A record that is honest about everything it looked at, and did not look, reads
+exactly like a record of a finished port. That is the same failure the skill
+exists to kill, arriving by a different door.

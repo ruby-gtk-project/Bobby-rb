@@ -2,109 +2,112 @@
 
 | | |
 |---|---|
-| Upstream | `origin/main` @ `5ea72fe` |
-| Port | `ruby` branch |
-| Upstream tests | 1 |
-| Ported | 1 |
-| Gaps | **1 — the suite cannot be run** |
-| Suite status | **not green: not executed** |
+| Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
+| Port | `ruby` @ `28bb3a5eec99ec3b5543f00e902cf10d00ba0fe9` |
+| Upstream tests | **1** |
+| Ported | **1** |
+| Gaps | **0** in the bijection |
+| Test command | **none that works** — see the finding below |
 
 ## Census
 
-Upstream, via `test-census.sh`:
-
 ```
+$ test-census.sh <upstream>
 src/bobby/tests/sqlite/test_sqlite_affinity.rs	test_sqlite_affinity_to_type_string	12
 ```
 
-One test function, six assertions. Cross-checked against the build file:
-`src/bobby/mod.rs:16-17` declares `#[cfg(test)] pub mod tests;` and
-`src/bobby/tests/mod.rs` declares exactly one module,
-`sqlite::test_sqlite_affinity`. `Cargo.toml` has no `[[test]]` section, so
-there is no integration-test tree the census could have missed. Upstream's
-`src/main.rs:22` also carries `// mod tests;` commented out at the crate root —
-no test content hides behind it.
+One row. Cross-checked against the build file as the skill requires:
+`Cargo.toml` declares no `[[test]]` target and there is no `tests/` directory,
+so the whole suite is the inline `#[cfg(test)] pub mod tests` declared at
+`src/bobby/mod.rs:19` and routed through `src/bobby/tests/mod.rs`, which names
+exactly one module. `grep -rn '#\[test\]\|#\[tokio::test\]\|#\[gtk::test\]'`
+over `src/` returns the same single hit. The census is complete.
 
-Port, via `test-census.sh`: 18 examples, all in
-`spec/bobby/sqlite/affinity_spec.rb`.
+```
+$ test-census.sh <port>
+19 rows, all in spec/bobby/sqlite/affinity_spec.rb
+```
 
-## Ledger — 1/1
+Two of those rows read `shows a blob` — the scanner truncates at the
+apostrophe in `shows a blob's size` (line 89) and `shows a blob's preview`
+(line 120). Nineteen distinct examples, keyed by `file#identifier@line`.
 
-| # | Upstream test | Property it pins | Port test | State |
+## The ledger
+
+### Suite: sqlite/affinity (1 test)
+
+| # | Upstream test | Purpose | Port test | State |
 |---|---|---|---|---|
-| 1 | `test_sqlite_affinity_to_type_string` (`src/bobby/tests/sqlite/test_sqlite_affinity.rs:7-14`) | Every affinity variant reports its own SQLite type name — `NUMERIC`, `INTEGER`, `REAL`, `TEXT`, `BLOB`, `NULL` — because that name is what a cell's tooltip shows the user beside the value | `Bobby::Sqlite::Affinity #type_string "names every affinity"` (`spec/bobby/sqlite/affinity_spec.rb:11-25`) | **ported** |
+| 1 | `src/bobby/tests/sqlite/test_sqlite_affinity.rs#test_sqlite_affinity_to_type_string` | every `Affinity` variant reports its own SQLite type name: NUMERIC, INTEGER, REAL, TEXT, BLOB, NULL | `spec/bobby/sqlite/affinity_spec.rb#names every affinity` (line 11) | ported |
 
-All six of upstream's assertions survive: the port asserts the same six names
-in one `eq(%w[NUMERIC INTEGER REAL TEXT BLOB NULL])`, variant for variant, and
-constructs each through `described_class.new(type: …)` against the same six
-constants. Not a partial port.
+The Ruby example asserts the same six names in the same order against the same
+six variants. The mapping is a bijection: 1 → 1.
 
-## Gap T1 — the suite has never been run
+## Extra
 
-**There is no evidence any of the port's 18 examples passes.**
+Eighteen examples written for the port with no upstream counterpart. They are
+outside the count and stay outside it.
 
-| | |
+- `spec/bobby/sqlite/affinity_spec.rb` — 7 on `.parse` (the declared-type rules, including the INT-before-FLOA ordering that `FLOATING POINT` turns on), 3 on `.from_value`, 4 on `#to_s`, 1 on `#dimmed?`, 3 on `#tooltip`.
+
+## What this means
+
+Upstream pinned one property. **The port therefore inherits essentially no
+safety net** — 33 of the upstream project's 34 source files have never had a
+test written against them by anybody, and the port's 19 examples all sit in
+one class. Parity is met, and parity being met is not reassurance. Two defects
+that this report's sibling found by *running* the app would have been caught
+by a test in either project, and were caught by neither:
+
+- `Affinity.from_value` never produces a `BLOB`, because the `sqlite3` gem returns blobs as plain `ASCII-8BIT` strings and the `when SQLite3::Blob` arm is unreachable from any read path. `affinity_spec.rb:72` and `:120` pass only because they hand-construct `SQLite3::Blob.new`, which the database layer never does. **A test that read a blob back out of a real table instead of constructing one would fail today.**
+- `Util.copy_to_clipboard` calls a `Gdk::Clipboard#set_text` that does not exist. No example touches `lib/bobby/util.rb` at all.
+
+Coverage by file, for the record: 1 of the port's 31 `lib/` files has a spec.
+`application.rb`, `window.rb`, all six widgets, all four dialogs, all ten
+actions, `cli.rb`, `log.rb`, `app.rb`, `settings.rb`, `util.rb` and five of
+the six `sqlite/` files have none.
+
+## Finding: there is no working test target, so the fourth proof condition fails
+
+The skill's Step 4 requires that "the port's suite passes under its own test
+target". The port declares several and none of them runs:
+
+| Command | Result |
 |---|---|
-| Upstream harness | `.github/workflows/tests.yml` builds the Flatpak from `studio.planetpeanut.Bobby.devel.yml` with `run-tests: true`, on x86_64 and aarch64, on every push to `main`/`dev` and every PR |
-| Port harness | `.rspec`, `spec/spec_helper.rb`, `Rakefile`, `.simplecov`, `.github/.codecov.yml`, `.gitlab-ci.yml` are all present. No GitHub Actions test workflow exists (`.github/` holds `aw/parity-scan.sh`, `dependabot.yml`, `FUNDING.yml`, `copilot_instructions.md`) |
+| `bundle exec rake test` | `can't find executable rake for gem rake. rake is not currently included in the bundle` |
+| `bundle exec rake spec` | same |
+| `bundle exec rspec` | `bundler: command not found: rspec` |
+| `rspec` | not installed |
+| `rspec --options /dev/null --format progress --require sqlite3 --default-path spec -I lib` | the command `.github/workflows/tests.yml` runs — it bypasses `.rspec` and `spec/spec_helper.rb` entirely |
 
-What I observed:
+The root `Gemfile` does not resolve: it depends on `kettle-family >= 1.3.29`,
+which requires Ruby >= 4.0.0, while the gemspec sets
+`required_ruby_version >= 3.4`. There is no `Gemfile.lock`. So `.rspec`'s
+`--require spec_helper` is dead — `spec/spec_helper.rb` loads
+`kettle/test/rspec` and `kettle-soup-cover` from that same unresolvable graph —
+and the only command that works is one that skips both files.
 
-```
-$ bundle exec rspec
-bundler: command not found: rspec
-Install missing gem executables with `bundle install`
+`FINDINGS.md` records the lockfile problem honestly. What it does not say is
+the consequence: the port ships a `Rakefile` with a `spec` task, an `.rspec`
+and a `spec_helper.rb` that together describe a test target nobody can invoke,
+and the real one is a 70-character incantation that exists only inside a CI
+yaml. The suite was not run during this audit, because it cannot be run from
+the repository as checked out. `19 examples, 0 failures` in `FINDINGS.md` is a
+claim this report could not reproduce.
 
-$ bundle install
-Cannot write a changed lockfile while frozen.
+The port's own devShell would be the obvious place to fix this, and it is
+where the audit did get GTK running — but `nix/Gemfile` lists only `adwaita`
+and `gtk4`, with neither `sqlite3` nor `rspec`, so the suite cannot run there
+either.
 
-$ ls Gemfile.lock
-(absent)
-```
+## Rules check
 
-The suite's own target cannot reach a runnable state in a fresh checkout, and
-there is no committed lockfile and no CI job that would have caught it. The
-skill's closing requirement is that "the port's suite passes under its own test
-target (`rake test` / `make test`)" and that the result be reported as numbers
-someone can re-run. The honest number here is **0 examples executed**.
+- Counts equal: 1 = 1 ✓
+- Bijection: 1 → 1, no merges, no splits ✓
+- Same property asserted: ✓
+- Every ledger row has a named port test: ✓
+- The named test exists in the port tree: ✓ (`spec/bobby/sqlite/affinity_spec.rb:11`)
+- **The suite passes under its own test target: ✗** — there is no such target
 
-This also leaves the single ported test unverified: `affinity_spec.rb` asserts
-against `SQLite3::Blob` (`:65`, `:113`), so it needs the `sqlite3` gem, which
-the gemspec does not declare (see `component-parity.md` G7). The spec may well
-pass. Nobody has shown that it does.
-
-**Behaviour still owed:** a person checking out this port and running its test
-command sees the affinity test pass, and sees it again on every push.
-
-**Fix:** declare the runtime gems in the gemspec, commit a `Gemfile.lock`, add
-a CI job that runs the suite, and report the count.
-
-## Extra — the port's own 17 examples
-
-Not parity work. Parity is the floor; these are above it and they stay listed
-separately so the 1/1 count above is never inflated by them. All in
-`spec/bobby/sqlite/affinity_spec.rb`:
-
-| Group | Examples | What they pin |
-|---|---:|---|
-| `.parse` | 6 | `BIGINT`→INTEGER, `VARCHAR(255)` truncated at the paren→TEXT, `CLOB`→TEXT, `DOUBLE`/`FLOATING POINT`→REAL, `""`→BLOB, `DECIMAL`→NUMERIC |
-| `.from_value` | 3 | nil→NULL, integer value kept, blob length + `"DE AD BE EF"` hex preview |
-| `#to_s` | 4 | em dash for NULL and for a value-less NUMERIC, `"12 BYTES"` for a blob, `"???"` for a variant that lost its value |
-| `#dimmed?` | 1 | NULL, blob and value-less NUMERIC dim; a TEXT with a value does not |
-| `#tooltip` | 3 | `"INTEGER 42"`, `"NULL"`, `"BLOB 01 02 …"` |
-
-## Untested port code
-
-Stated as fact, not as a parity row — upstream tests none of it either, so
-none of it is owed under this ledger. It is worth knowing that 34 of the port's
-35 `lib/` files have no spec:
-
-`Sqlite::Database`, `Row` (including the rowid-vs-OFFSET query switch),
-`Table`/`TableName` (including the validation that is the port's only defence
-against identifier injection, since table names are interpolated into SQL),
-`Column`, `Cache`, `ColumnSeparator`, `RowOrder`, `Cli`, `Log`, `App`,
-`Settings`, `Util`, and every widget, dialog, action and the window.
-
-`TableName.valid?` (`lib/bobby/sqlite/table.rb:22-28`) deserves a test most: it
-is the single check standing between `Table.row_count`'s
-`"SELECT COUNT(*) FROM #{table.name}"` (`:76`) and an arbitrary identifier.
+**Verdict: the bijection holds at 1/1; the proof does not, because the fourth
+condition cannot be met.**
