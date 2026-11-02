@@ -3,4 +3,4 @@
 
 require "bobby"
 
-Bobby::Application.new.build.run
+Bobby::Application.new.start
