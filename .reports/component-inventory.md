@@ -4,7 +4,7 @@
 |---|---|
 | Upstream | `origin/main` (Rust, gtk4-rs + libadwaita) |
 | Port | `ruby` branch, `lib/bobby/**` |
-| Inventory taken at | port `28bb3a5`. The unit list below is still the unit list; the gap ids and the parity figures that were current when it was written are not. `PORTING.md` carries the current ones |
+| Inventory taken at | port `abc1357` (re-surveyed 2026-11-02 against `origin/main`; first taken at `28bb3a5`). The unit list is unchanged: upstream's file list and every widget, CSS class, signal and action in the tables below were re-read from `git show origin/main:<path>` and re-checked against `lib/` at `abc1357`. Parity figures and gap ids elsewhere age faster — `PORTING.md` carries the current ones |
 | Declarative UI upstream | **none** — `git ls-tree -r --name-only origin/main` lists no `.ui`, no `.blp`, no `.css`, no `.gresource.xml`. Every widget is built in Rust builder chains |
 | GSettings schema | `data/studio.planetpeanut.Bobby.gschema.xml` — 4 keys (`row-numbers` b, `row-order` s/2 choices, `column-separator` s/4 choices, `monospace-font` b) |
 | `po/` catalogue | **none upstream.** No `po/`, no `LINGUAS`, no `POTFILES`, no `gettext`/`_()` call anywhere in `src/`. Every user-facing string is an inline Rust literal |
