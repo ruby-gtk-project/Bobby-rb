@@ -10,7 +10,7 @@ out or merge the upstream ref.
 | Upstream ref | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
 | Port branch | `ruby` |
 | Last parity audit | `.reports/` @ port `9a3ce26`, audited through C-23 |
-| Open gaps now | **5** — C-07, C-12, C-13, C-14, C-23 |
+| Open gaps now | **4** — C-12, C-13, C-14, C-23. C-07 was closed in `9a4be48`, after the last parity audit, so `.reports/component-parity.md` still lists it as open; this file is the current source of truth for gap status. |
 
 ## Upstream
 
@@ -49,7 +49,7 @@ column are defects found in it by the audit.
 | `lib/bobby/actions/win_close.rb`, `win_reload.rb`, `win_switch_table.rb` | `src/gtk/actions/win_close.rs`, `win_reload.rs`, `win_switch_table.rs` | — |
 | `lib/bobby/actions/win_copy_row.rb`, `win_copy_val.rb` | `src/gtk/actions/win_copy_row.rs`, `win_copy_val.rs` | — |
 | `lib/bobby/sqlite/affinity.rb` | `src/bobby/sqlite/affinity.rs` | — |
-| `lib/bobby/sqlite/cache.rb` | `src/bobby/sqlite/cache.rs` | C-07 |
+| `lib/bobby/sqlite/cache.rb` | `src/bobby/sqlite/cache.rs` | — |
 | `lib/bobby/sqlite/column.rb` | `src/bobby/sqlite/column.rs` | — |
 | `lib/bobby/sqlite/database.rb` | `src/bobby/sqlite/database.rs` | — |
 | `lib/bobby/sqlite/row.rb` | `src/bobby/sqlite/row.rs` | — |
@@ -68,12 +68,12 @@ Upstream's `src/bobby/mod.rs`, `src/bobby/prelude.rs`, `src/gtk/mod.rs`,
 Parity audit verdict per unit: `content`, `switcher`, `main menu`,
 `open button`, `drop target`, the four dialogs and the window's state machine
 reached parity under a driven run (`nix develop`, GTK 4.22.4, xvfb). The drive
-is now **461 checks over 98 steps, 16 screenshots** in `tmp/shots/`:
-`nix develop --command xvfb-run -a ruby test/drive_bobby.rb` → `461 of 461
-checks passed` / `DRIVE OK`. Message parity is 34/34 byte-identical, the extra
+is now **474 of 474 checks passed, 16 screenshots** in `tmp/shots/`, run with
+`nix develop --command xvfb-run -a ruby test/drive_bobby.rb` → `DRIVE OK`
+(reconfirmed this round). Message parity is 34/34 byte-identical, the extra
 one being `Copied to clipboard` (C-19). Test parity is a 1 → 1 bijection, and
-the suite now runs from the command the dev shell prints: 30 examples, 0
-failures.
+the suite now runs from the command the dev shell prints: 36 examples, 0
+failures (reconfirmed this round).
 
 ## Not started
 
@@ -98,18 +98,9 @@ What used to be in this list and is now here:
 
 ## Open gaps
 
-Five, and the figures above are this round's. Everything else the audits
+Four, and the figures above are this round's. Everything else the audits
 raised through C-23 is in *Closed* below, with the commit that closed it.
 
-- **C-07 — no lazy paging.** `lib/bobby/sqlite/cache.rb:68-77` builds a
-  `RowObject` for every row and appends all of them to a `Gio::ListStore`
-  before the window appears, against upstream's `gio::ListModel` whose
-  `item(n)` fetches a 256-row page centred on n and evicts beyond ±256
-  (`src/bobby/sqlite/cache.rs`). It also makes the metainfo's own feature line
-  `Scroll through tables and views of any size`
-  (`data/studio.planetpeanut.Bobby.metainfo.xml:65`) false. The two
-  alternatives that need no GInterface have now been run and neither is lazy
-  paging — see FINDINGS.md, *About the bindings*, for what each did.
 - **C-12 — no Flatpak manifest**, so `App.flatpak?`, `PREFIX = '/app'`, the
   `' (Flatpak)'` suffix, the XDG overrides and the non-checkout branch of
   `Settings.install_schema_dir` have never run. Upstream:
@@ -149,6 +140,7 @@ raised through C-23 is in *Closed* below, with the commit that closed it.
 | C-20 | not one check asserted a toast | this round, a toast section in the drive |
 | C-21 | no declared test command ran | this round, `spec/spec_helper.rb` |
 | C-22 | the port shows an error page where upstream shows nothing | recorded as a deliberate divergence in FINDINGS.md, this round |
+| C-07 | `Sqlite::Cache` read every row of a table eagerly into a `Gio::ListStore`, against upstream's windowed `DatabaseCacheModel` | `9a4be48` — `Cache` is now itself a `Gio::ListModel`, paging 256 rows at a time and evicting beyond ±256 |
 
 C-21 is closed in the half that was a defect: the dev shell's own command runs
 the suite, with `.rspec` and `spec_helper.rb` in force. The root bundle still
@@ -159,18 +151,18 @@ does not resolve on Ruby 3.4 and there is still no `Gemfile.lock`; FINDINGS.md,
 
 Things that cannot be ported as upstream writes them, and why.
 
-- **`DatabaseCacheModel` (`src/bobby/sqlite/cache.rs`) has no direct
-  equivalent.** It subclasses GObject and implements the `Gio.ListModel`
-  interface vfuncs `item`/`n_items`/`item_type`. That a Ruby class cannot
-  implement a GInterface's vfuncs is an assertion this port never tested, not
-  something it established — see FINDINGS.md. The port uses a
-  `Gio::ListStore` of a `type_register`ed `GLib::Object` subclass, filled
-  eagerly. This costs the constant-memory browsing of very large tables and is
-  the one real behavioural regression in the port (gap C-07). The two
-  alternatives that need no GInterface have now been run against a real table
-  and neither restores the windowed cache, because the scrollbar's range is
-  the length of the model the view was given; what they could buy is lazy row
-  data, not lazy objects.
+- **`DatabaseCacheModel` (`src/bobby/sqlite/cache.rs`) is no longer a
+  blocker.** It subclasses GObject and implements the `Gio.ListModel`
+  interface vfuncs `item`/`n_items`/`item_type`. Earlier rounds assumed a Ruby
+  class could not implement a GInterface's vfuncs; `9a4be48` tested that
+  assumption and it was false. `Sqlite::Cache` (`lib/bobby/sqlite/cache.rb`)
+  is itself a `type_register`ed `GLib::Object` that `include`s
+  `Gio::ListModel` and defines `virtual_do_get_item`,
+  `virtual_do_get_n_items` and `virtual_do_get_item_type`, with the same
+  256-row paging and ±256 eviction as upstream. The one ordering rule that
+  makes this work: `include Gio::ListModel` must come *after*
+  `type_register`, or the GType is registered without the interface and the
+  model silently answers 0 items.
 - **`glib::BoxedAnyObject` ↔ `Sqlite::RowObject`.** The mechanism has no Ruby
   equivalent: upstream boxes a plain Rust `Row` into a GObject to put it in a
   list model, and ruby-gnome exposes no `BoxedAnyObject`. The behaviour is
