@@ -1,15 +1,19 @@
 # Test parity — Bobby
 
+Reconfirmed and re-derived this round against current `HEAD`. The previous
+version of this report (port @ `9a3ce26`) is superseded; it predated
+`spec/bobby/sqlite/row_spec.rb`, which lands the port's bijection claim false.
+
 | | |
 |---|---|
 | Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
-| Port | `ruby` @ `9a3ce26f5edc81fdd0614ab6e3523ff09305463d` |
-| Upstream tests | **1** |
-| Ported | **1** |
-| Gaps in the bijection | **0** |
-| Test command | **none of the declared ones runs** — including the one the dev shell prints. See the finding. |
-| Suite executed this round | yes, under a hand-built invocation: **25 examples, 0 failures** |
-| Drive executed this round | yes: **428 of 428 checks passed**, `DRIVE OK`, exit 0 |
+| Port | `ruby` @ `314c519` (HEAD) |
+| Upstream `#[test]` functions | **1** |
+| Upstream source files with any test | **1 of 34** |
+| Port spec files | **2** — `spec/bobby/sqlite/affinity_spec.rb`, `spec/bobby/sqlite/row_spec.rb` |
+| Port examples (live run) | **36 examples, 0 failures**, `nix develop --command xvfb-run -a ruby -e 'require "rspec/core"; exit RSpec::Core::Runner.run(["--format","progress","--require","spec_helper","spec"])'` |
+| Drive (live run) | **474 of 474 checks passed**, `DRIVE OK` |
+| Gaps in the bijection | **1 — new finding this round, see below** |
 
 ## Census
 
@@ -18,126 +22,144 @@ $ test-census.sh <upstream>
 src/bobby/tests/sqlite/test_sqlite_affinity.rs	test_sqlite_affinity_to_type_string	12
 ```
 
-One row. Cross-checked against the build file as the skill requires:
-`Cargo.toml` declares no `[[test]]` target and there is no `tests/` directory,
-so the whole suite is the inline `#[cfg(test)] pub mod tests` at
-`src/bobby/mod.rs:19` routed through `src/bobby/tests/mod.rs`, which names
-exactly one module. `meson.build:47` registers a single `test('cargo_test', …
-args: ['test'])`, which runs that one case.
-`grep -rnE '#\[(test|tokio::test|gtk::test)\]'` over `src/` returns the same
-single hit. The census is complete.
+Cross-checked: `Cargo.toml` declares no `[[test]]` target and there is no
+`tests/` directory, so the whole suite is the inline `#[cfg(test)] pub mod
+tests` routed through `src/bobby/tests/mod.rs`, which names exactly one
+module, which names exactly one `#[test]` function, asserting six `assert_eq!`
+calls (NUMERIC, INTEGER, REAL, TEXT, BLOB, NULL). `grep -rnE
+'#\[(test|tokio::test)\]' src/` returns that one hit and no other. The census
+is complete: **upstream has one test, period.**
 
 ```
 $ test-census.sh <port>
-25 rows  spec/bobby/sqlite/affinity_spec.rb
-476 rows test/drive_bobby.rb
+spec/bobby/sqlite/affinity_spec.rb   30 examples
+spec/bobby/sqlite/row_spec.rb         6 examples
+test/drive_bobby.rb                 474 checks over 84 steps
 ```
-
-**The assertion unit of `test/drive_bobby.rb` is `check`, not `step`.**
-`test/gtk_driver.rb:83-84` is where `@checks` is incremented; `step` only
-groups and is counted in `@steps`. The census collects both, so its 476 is
-neither figure — the driver's own counter reports **84 steps and 428 checks**,
-and 428 is the number this report uses. 48 of the census's rows are `step`
-names and the rest are `check` descriptions, with the interpolated ones
-missing, which is the shape the skill warns about.
-
-Duplicate identifiers: `cut -f2 port-tests.tsv | sort | uniq -d` returns
-several in the drive, so drive rows are keyed `file#identifier@line`. The spec
-file has none.
 
 ## The ledger
 
-### Suite: sqlite/affinity (1 test)
+### Suite: sqlite/affinity (1 upstream test)
 
 | # | Upstream test | Purpose | Port test | State |
 |---|---|---|---|---|
-| 1 | `src/bobby/tests/sqlite/test_sqlite_affinity.rs#test_sqlite_affinity_to_type_string` | every `Affinity` variant reports its own SQLite type name, in order: NUMERIC, INTEGER, REAL, TEXT, BLOB, NULL | `spec/bobby/sqlite/affinity_spec.rb#names every affinity` (line 12) | ported |
+| 1 | `src/bobby/tests/sqlite/test_sqlite_affinity.rs#test_sqlite_affinity_to_type_string` | every `Affinity` variant reports its own SQLite type name, in order: NUMERIC, INTEGER, REAL, TEXT, BLOB, NULL | `spec/bobby/sqlite/affinity_spec.rb` → `#type_string names every affinity` | ported, 1:1 |
 
-The Ruby example asserts the same six names in the same order against the same
-six variants. The mapping is a bijection, 1 → 1, with no merges and no splits.
+`affinity_spec.rb`'s other 29 examples (`.parse`, `.from_value`, `#to_s`,
+`#dimmed?`, `#tooltip`) are the port's own, exercising `Affinity` methods
+upstream never wrote a test against — they stay in **Extra**, outside the
+count, same as prior rounds.
+
+### Finding: `row_spec.rb` is six port tests with no upstream counterpart
+
+`spec/bobby/sqlite/row_spec.rb` landed in `9a4be48` ("Port upstream's paged
+`DatabaseCacheModel` as a lazy `Gio::ListModel`"), after the previous
+test-parity audit (port @ `9a3ce26`) was written. Its own header comment is
+explicit about what it is testing: `Row.page` is **"the port's own second
+query"** — it does not exist in `src/bobby/sqlite/row.rs` at all. Upstream has
+no test file for `sqlite/row.rs`, paged or otherwise; `test_sqlite_affinity.rs`
+is upstream's only test file, full stop.
+
+So the census now has six Ruby examples that:
+
+- test a method (`Row.page`) upstream does not have,
+- in a file upstream never wrote a test for,
+- with zero upstream test to map to on either side of the join.
+
+Per the skill, a bijection means *every port test is named by exactly one
+upstream test*. These six are named by none. The previous report's line
+"the bijection holds at 1/1" is no longer true the moment `row_spec.rb`
+existed, and nothing updated it. **This is gap T-01: the test-parity report
+was carried forward as green across a commit that broke its own central
+claim.**
+
+This is not a claim that the six tests are bad — `Row.page` is real,
+necessary behaviour (`Sqlite::Cache`'s lazy paging depends on it, and it is
+driven live by `test/drive_bobby.rb`'s big-table steps too) and PORTING.md's
+own "Deliberate divergences" section names the rowid/offset split honestly.
+The defect is narrower and sharper than "six extra tests exist": **it is that
+the parity report kept asserting a 1:1 bijection after a commit made that
+false, and nobody re-ran this skill to catch it.** That is exactly the failure
+mode `accountability-ensurance` exists to catch, and it is cross-filed there.
 
 ## Extra
 
-Everything below is outside the count and stays outside it. Parity is a floor
-upstream set; none of this is parity work.
+Everything below is outside the count and stays outside it.
 
-- `spec/bobby/sqlite/affinity_spec.rb` — 24 further examples: 7 on `.parse` (the declared-type rules, including the INT-before-FLOA ordering that `FLOATING POINT` turns on), 9 on `.from_value` (six of them reading their values out of a real in-memory database rather than constructing a `SQLite3::Blob`, which is why the earlier versions passed while the blob feature was broken), 4 on `#to_s`, 1 on `#dimmed?`, 3 on `#tooltip`.
-- `test/drive_bobby.rb` — 428 checks over 84 steps driving the real application headlessly: the three window states, all eleven actions, the four dialogs, both menus, the switcher, the preferences round trip, the CLI, the log, the clipboard, multi-window handling, the close path.
+- `spec/bobby/sqlite/affinity_spec.rb` — 29 further examples beyond the one
+  ported test: 7 on `.parse` (declared-type rules, including the
+  INT-before-FLOA ordering `FLOATING POINT` turns on), 9 on `.from_value` (six
+  reading values out of a real in-memory database), 4 on `#to_s`, 5 on the
+  REAL-rendering `#to_s` sub-block, 1 on `#dimmed?`, 3 on `#tooltip`.
+- `spec/bobby/sqlite/row_spec.rb` — 6 examples on `Row.page` and `Row.all`,
+  discussed above.
+- `test/drive_bobby.rb` — 474 checks over 84 steps driving the real
+  application headlessly: the three window states, all eleven actions, the
+  four dialogs, both menus, the switcher, the preferences round trip, the
+  CLI, the log, the clipboard, multi-window handling, the close path, and (new
+  since the last audit) the toast title/timeout/dismiss/cutoff.
 
 ## What this means
 
 Upstream pinned **one** property, in one class, out of 34 source files.
+**The port therefore inherits essentially no safety net from upstream.**
+33 of 34 upstream source files have never had a test written against them by
+anyone, upstream or port, and the one property that was pinned is a six-way
+string lookup.
 
-**The port therefore inherits essentially no safety net.** Parity is met at
-1/1, and parity being met here is not reassurance about anything: 33 of
-upstream's 34 files have never had a test written against them by anybody, and
-the one property that was pinned is a six-way string lookup. Saying so plainly
-is the finding; leaving it implied is how a 1/1 report gets read as a pass.
+The port's own ~509 extra assertions (35 spec examples + 474 drive checks) are
+where the real evidence is, and FINDINGS.md documents five defects they found
+that reading alone did not. They are also where the remaining blind spots are.
+Measured against the current component audit:
 
-The port's own 453 extra assertions are where the actual evidence is, and they
-were what found the last seven defects. They are also where the remaining
-blind spots are. Measured against this round's component audit:
-
-| Not asserted by any of the 453 | Consequence |
+| Not asserted by anything | Consequence |
 |---|---|
-| any REAL cell's rendered text | gap **C-17** — `1.0` where upstream renders `1` — survived two audits |
-| the toast title, its timeout, `dismiss_all`, or the 96-unit cutoff | gaps **C-18**, **C-19**, **C-20** |
-| `Settings::CHOICES` against the schema's `<choices>` | the port's hard-coded copy can drift from the schema where upstream's cannot |
-| a drop that actually opens a database; the file chooser | gap **C-23**, a binding limitation, recorded |
+| a drop that actually opens a database via a synthesised `Gdk::FileList`; the file chooser's async finish path | open gap **C-23**, a recorded binding limitation |
+| `Settings::CHOICES` against the schema's `<choices>` | the port's hard-coded copy can drift from the schema where upstream's cannot — not separately gap-numbered, worth watching |
+| Flatpak-specific branches (`App.flatpak?`, `PREFIX = '/app'`) | open gaps **C-12**, **C-13**, **C-14** — there is no manifest to drive them under |
 
-Coverage by file, for the record: **1 of the port's 47 `lib/` files has a
-spec.** `application.rb`, `window.rb`, all six widgets, all four dialogs, all
-ten actions, `cli.rb`, `log.rb`, `app.rb`, `preflight.rb`, `icons.rb`,
-`settings.rb`, `util.rb` and five of the six `sqlite/` files have none. The
-drive exercises most of them at runtime; nothing exercises them per unit.
+Coverage by file, for the record: **2 of the port's 41 `lib/` files have a
+spec** (`sqlite/affinity.rb`, `sqlite/row.rb`). `application.rb`, `window.rb`,
+all six widgets, all four dialogs, all ten actions, `cli.rb`, `log.rb`,
+`app.rb`, `preflight.rb`, `icons.rb`, `settings.rb`, `util.rb` and four of the
+remaining five `sqlite/` files have none. The drive exercises most of them at
+runtime; nothing exercises them per unit.
 
-## Finding: the suite runs, but not by any command the project declares
+## Finding: the suite now runs from the command the dev shell prints — C-21 is closed
 
-The skill's Step 4 requires that "the port's suite passes under its own test
-target". The port declares four and **none of them works** — including, this
-round, the one the dev shell itself prints:
+Re-run live this round:
 
-| Command | Result |
-|---|---|
-| the dev shell banner's own line: `nix develop --command ruby -e 'require "rspec/core"; … "--require", "spec_helper", "spec"'` | `LoadError: cannot load such file -- kettle/test/rspec` at `spec/spec_helper.rb:23` → **0 examples, 2 errors outside of examples** |
-| `nix develop --command bundle exec rspec` | bundler aborts; the root bundle does not resolve |
-| the same without `--require spec_helper` | still fails — `.rspec` supplies `--require spec_helper` anyway → **0 examples, 1 error** |
-| `nix develop --command ruby -e '… ["--options","/dev/null","--format","progress","spec"]'` | **25 examples, 0 failures** |
+```
+$ nix develop --command xvfb-run -a ruby -e 'require "rspec/core"; exit RSpec::Core::Runner.run(["--format","progress","--require","spec_helper","spec"])'
+36 examples, 0 failures
+```
 
-Only the last works, and it works by discarding `.rspec` and `spec_helper.rb`
-entirely. That is a worse state than the previous audit found, not a better
-one: `nix/Gemfile` gained `sqlite3` in `ca5cafa` and the flake's shell hook
-gained a printed spec command, so the project now *advertises* a test command
-that fails on the first line of the file it loads.
+`spec/spec_helper.rb` now wraps the `kettle/test/rspec` require in the same
+`rescue LoadError` pattern the `kettle-soup-cover` require above it already
+had, re-raising anything whose message does not mention kettle. That is a real
+fix, not a workaround that discards `.rspec`/`spec_helper.rb` the way the
+previous round's "25 examples" figure did. **C-21 is closed**, matching
+PORTING.md's own ledger.
 
-The chain is:
-
-- `.rspec:4` is `--require spec_helper`, so every invocation loads `spec/spec_helper.rb`;
-- `spec/spec_helper.rb:23` requires `kettle/test/rspec`, from the kettle-dev development bundle;
-- `nix/Gemfile` carries the gemspec's runtime gems only — `adwaita`, `gtk4`, `sqlite3` — so the devShell has no `kettle-test`;
-- the root `Gemfile` would have it, and does not resolve: `kettle-family >= 1.3.29` declares Ruby >= 4.0.0 against the gemspec's `required_ruby_version >= 3.4`, and there is no root `Gemfile.lock` (`git ls-files | grep Gemfile.lock` → only `nix/Gemfile.lock`);
-- `.github/workflows/tests.yml` sidesteps all of it with `gem install` and an explicit `--options` override.
-
-So the port ships a `Rakefile` with a `spec` task, an `.rspec`, a
-`spec_helper.rb` and a dev-shell banner that between them describe a test
-target nobody can invoke, and the real one is an incantation that lives in a CI
-yaml and in this report. **That is gap C-21.** `FINDINGS.md` records the
-lockfile problem honestly and does not record this consequence.
-
-The 25 examples do pass, and that was verified in this round from a cold shell.
-The claim being withheld is not "the suite is broken" — it is "the suite can be
-run the way the project says to run it".
+The root bundle still does not resolve on Ruby 3.4 (`kettle-family >= 1.3.29`
+requires Ruby `>= 4.0.0`), so `bundle exec rspec` at the repo root still
+fails; that is recorded in FINDINGS.md under *About the bindings* and is not
+re-litigated here, since the devShell path — the one actually printed and
+actually run — now works.
 
 ## Rules check
 
-- Counts equal: 1 = 1 ✓
-- Bijection: 1 → 1, no merges, no splits ✓
-- Same property asserted, same inputs, same order ✓
-- Every ledger row has a named port test ✓
-- The named test exists by that name in the port tree ✓ (`spec/bobby/sqlite/affinity_spec.rb:12`)
-- The suite passes under its **own** test target: **✗** — no declared target runs
-- The suite passes at all: ✓ — 25/25, under an invocation built by hand
+- Counts equal, upstream to port's *ported* set: 1 = 1 ✓
+- Bijection over the full port suite: **✗** — 6 of 36 examples (`row_spec.rb`)
+  have no upstream test to map to (gap **T-01**)
+- Same property asserted, same inputs, same order, for the one pair that maps: ✓
+- The suite passes under its own printed test target: ✓ (reconfirmed live,
+  36/36) — **C-21 closed**
+- The drive passes: ✓ (reconfirmed live, 474/474) — **DRIVE OK**
 
-**Verdict: the bijection holds at 1/1 and the suite is green at 25/25, but the
-fourth proof condition fails, so test parity is not proven. One open gap,
-C-21.**
+**Verdict: the single upstream test is ported 1:1 and the suite is green and
+runnable by its own declared command, closing C-21. Test parity as a whole is
+not proven, because the port's suite contains six examples the upstream
+census cannot account for, and the prior audit's "bijection holds at 1/1"
+claim survived a commit that made it false. One new gap, T-01 — a reporting
+gap, not a runtime one.**

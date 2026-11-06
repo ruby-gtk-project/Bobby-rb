@@ -1,9 +1,19 @@
 # Component identification — Bobby
 
+**Reconfirmed this round against `HEAD` (`314c519`).** The commits since
+`9a3ce26` (`e11c5bc` float rendering, `9a4be48` lazy-paging cache, the GPLv3
+headers, the kettle-jem packaging commit) touch `sqlite/affinity.rb`,
+`sqlite/cache.rb`, `sqlite/row.rb`, `sqlite/database.rb`,
+`widgets/content.rb`, `window.rb` and `application.rb`'s internals, but
+build no new widget, dialog, menu item, action, CSS class or signal
+connection — `git diff 9a3ce26 HEAD -- lib/ | grep -nE '\.new\(|connect\('`
+turns up nothing beyond what was already inventoried. The 16-unit count
+below still stands.
+
 | | |
 |---|---|
 | Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
-| Port | `ruby` @ `9a3ce26f5edc81fdd0614ab6e3523ff09305463d` |
+| Port | `ruby` @ `9a3ce26f5edc81fdd0614ab6e3523ff09305463d` (re-verified unchanged through `314c519`) |
 | Declarative UI (Step 1) | **none on either side** — no `.ui`, no `.blp`, no GResource, no `.css` |
 | Units | 16 |
 

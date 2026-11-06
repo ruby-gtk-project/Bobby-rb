@@ -1,5 +1,43 @@
 # Accountability ensurance — Bobby
 
+## This round's finding, first, because it is the most serious kind
+
+**A false green claim survived in three documents across a commit that made
+it false, and nothing caught it until this round.**
+
+`9a4be48` ("Port upstream's paged `DatabaseCacheModel` as a lazy
+`Gio::ListModel`") added `spec/bobby/sqlite/row_spec.rb`, six new RSpec
+examples, raising the suite from 30 to 36. Three documents had already
+written down the pre-commit number as a settled fact and none of them was
+updated:
+
+| Document | What it still said, found this round | Reality |
+|---|---|---|
+| `FINDINGS.md:80` | "the dev shell's own line now runs the suite: **30 examples, 0 failures**" | 36, live-reconfirmed |
+| `FINDINGS.md:89` | "**30 examples, 0 failures**" again, in the verification ledger | 36 |
+| `.reports/test-parity.md` (pre-round) | "the bijection holds at 1/1 and the suite is green at **25/25**" | 36, and the bijection claim itself is now false too — see below |
+
+Worse than the stale number: `.reports/test-parity.md`'s central claim —
+"the bijection holds at 1/1" — stopped being true the moment `row_spec.rb`
+landed, because those six examples test `Sqlite::Row.page`, a method that
+does not exist upstream, in a file upstream has no test for. Nobody re-ran
+the test-parity skill after that commit to catch it. That is this org's
+exact failure pattern from `console-rb` happening again, just without a
+labelled "Dropped deliberately" section to point at: a claim was written
+once, read by later rounds as settled, and never re-derived against the
+commit that broke it. **Both `FINDINGS.md` and the stale `test-parity.md`
+have been corrected this round** (see the diffs on `FINDINGS.md:80,89` and
+the rewritten `.reports/test-parity.md`, which files this as gap **T-01**).
+
+The lesson this round adds to the rule below: a quantitative claim
+("N examples", "N checks", "N/N") written into a document is a liability the
+moment a later commit can change N, and it did, three times, in three
+documents, before anyone checked.
+
+---
+
+## Everything below is the audit as performed at port `9a3ce26`
+
 | | |
 |---|---|
 | Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |

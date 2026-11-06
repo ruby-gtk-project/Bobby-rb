@@ -1,9 +1,27 @@
 # Translation parity — Bobby
 
+**Reconfirmed this round against `HEAD` (`314c519`).** No `po/`, `.ui`,
+`.blp` or translatable-string-bearing file changed between the audited
+commit and now — the commits since (`e11c5bc`, `9a4be48`, et al.) touched
+`sqlite/affinity.rb`, `sqlite/cache.rb`, `sqlite/row.rb`,
+`actions/win_copy_val.rb`'s byte-counting logic, and GPLv3 headers, none of
+which add, remove or reword a user-visible string. `win_copy_val.rb`'s two
+toast strings (`LONG_TITLE = 'Copied to clipboard'` and the tabular-figures
+markup template) are unchanged text, only the condition that gates them
+changed (byte vs character count), so the census below still holds. The data
+files (`metainfo.xml`, `.desktop`, `Bobby.doap`) were re-diffed against
+`origin/main` this round: identical apart from the expected repository-URL
+swap in three screenshot `<image>` elements and one appended
+`<release version="0.1.0">` block, neither of which is a translatable string.
+PORTING.md's own "34/34" (message parity, including the one dead non-msgid
+literal that also matches byte-for-byte) and "33/33" (msgid count only) are
+not a contradiction — they are two different counts of the same census,
+both consistent with the 33/33 below.
+
 | | |
 |---|---|
 | Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
-| Port | `ruby` @ `9a3ce26f5edc81fdd0614ab6e3523ff09305463d` |
+| Port | `ruby` @ `9a3ce26f5edc81fdd0614ab6e3523ff09305463d` (re-verified unchanged through `314c519`) |
 | Domain | **none** — neither tree has a gettext domain |
 | Upstream messages (census) | **33** |
 | Port messages (census) | **33** |

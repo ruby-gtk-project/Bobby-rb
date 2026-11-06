@@ -1,5 +1,39 @@
 # Component parity — Bobby
 
+**Reconciled this round (port @ `314c519`, HEAD).** Everything below this
+block is the audit as written at port `9a3ce26` and is now stale in detail:
+most of the gaps it lists as open (C-07, C-08, C-10 through C-15, C-17
+through C-21) were closed in the commits since, as PORTING.md's own ledger
+records. The body is kept because the per-component reading it did is still
+correct and still the evidence for *why* each gap was real; only the
+open/closed status has moved. Do not read "14 open gaps" below as current.
+
+**Current status, reconfirmed live this round:**
+
+| | |
+|---|---|
+| Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
+| Port | `ruby` @ `314c519` (HEAD) |
+| Open gaps | **4** — C-12, C-13, C-14 (Flatpak packaging), C-23 (two of three file-open routes never driven) |
+| Driven | yes, live this round — `nix develop --command xvfb-run -a ruby test/drive_bobby.rb` → **474 of 474 checks passed**, `DRIVE OK`, exit 0, 16 screenshots in `tmp/shots/` |
+| C-07 (lazy paging) | **closed** — `Sqlite::Cache` is a `Gio::ListModel` paging 256 rows at a time, per `9a4be48` |
+| C-17/C-18/C-19/C-20 (REAL rendering, byte cutoff, dead-toast string, toast assertions) | **closed** — reconfirmed by live grep of `test/drive_bobby.rb`: toast title, `timeout == 2`, `dismiss_all`-driven single-toast-per-repeat, and the 96-byte cutoff are all now asserted (search `d.check` near lines 1213–1378) |
+| C-21 (no runnable test command) | **closed** — `nix develop --command xvfb-run -a ruby -e '…require "spec_helper"…'` runs live, **36 examples, 0 failures** |
+
+The four still-open gaps are unglamorous but real: no Flatpak manifest exists
+so `App.flatpak?`/`PREFIX = '/app'`/the XDG override path/the non-checkout
+`Settings.install_schema_dir` branch have never executed under any test
+(C-12), there is no Flatpak CI job because there is nothing for it to build
+(C-13), no vendoring script (C-14), and the drop target's accepting branch
+plus the file dialog's cancel path remain reachable only by a real pointer
+drag or a crafted async result that nothing in the suite constructs (C-23).
+None of these four is excused anywhere in PORTING.md, FINDINGS.md or this
+report — each is stated as still missing, with what would close it.
+
+---
+
+## Original audit body (port @ `9a3ce26`) — historical, see reconciliation above
+
 | | |
 |---|---|
 | Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
