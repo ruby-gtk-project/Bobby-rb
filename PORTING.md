@@ -9,7 +9,7 @@ out or merge the upstream ref.
 |---|---|
 | Upstream ref | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
 | Port branch | `ruby` |
-| Last parity audit | `.reports/` @ port `947ecce`, audited through C-24 |
+| Last parity audit | `.reports/` @ port `ae9e1cd` (HEAD), audited through C-24. A blocker-only resurvey this round re-read `lib/bobby.rb`'s module tree against `.reports/component-inventory.md` and a fresh `git ls-tree -r --name-only origin/main`; both still match, nothing new was found, and no app code changed. |
 | Open gaps now | **3** — C-23, T-01 (reporting-only), and **C-24**. C-12/C-13/C-14 were written up as "closed" in `ada9290`'s commit message and in an earlier version of this file, but the only verification those five files (two manifests, the CI workflow, the vendoring script, `Gemfile.flatpak`) have ever received is that they parse as YAML/bash. `flatpak-builder` is not in the dev shell and has never run against either manifest, the CI workflow has never produced an Actions run, `build-aux/dist-vendor.sh` has never been executed, and none of `App.flatpak?`, `PREFIX = '/app'`, the `' (Flatpak)'` version suffix, the XDG override path, or the non-checkout branch of `Settings.install_schema_dir` has ever executed under either flag. That is a manifest ported, unbuilt, not a closed gap — see `.reports/component-parity.md` and `.reports/accountability-ensurance.md` (gap **C-24**). C-12/C-13/C-14 are reopened below until a real `flatpak-builder` run against both manifests drives those four code branches at least once. |
 
 ## Upstream
