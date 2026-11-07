@@ -10,7 +10,7 @@ out or merge the upstream ref.
 | Upstream ref | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
 | Port branch | `ruby` |
 | Last parity audit | `.reports/` @ port `9a3ce26`, audited through C-23 |
-| Open gaps now | **4** — C-12, C-13, C-14, C-23. C-07 was closed in `9a4be48`, after the last parity audit, so `.reports/component-parity.md` still lists it as open; this file is the current source of truth for gap status. |
+| Open gaps now | **1** — C-23. C-07 was closed in `9a4be48` and C-12/C-13/C-14 this round, after the last parity audit, so `.reports/component-parity.md` still lists all four as open; this file is the current source of truth for gap status. |
 
 ## Upstream
 
@@ -101,23 +101,15 @@ What used to be in this list and is now here:
 
 ## Open gaps
 
-Four C-series gaps, and the figures above are this round's. Everything else
-the audits raised through C-23 is in *Closed* below, with the commit that
-closed it. There is also one reporting gap, **T-01**: `spec/bobby/sqlite/row_spec.rb`'s
+One C-series gap remains open; the figures above are this round's. Everything
+else the audits raised through C-23 is in *Closed* below, with the commit
+that closed it. There is also one reporting gap, **T-01**: `spec/bobby/sqlite/row_spec.rb`'s
 six examples test `Row.page`, which upstream has no test for, so the port's
 36-example suite is not a 1 → 1 bijection with upstream's single test even
 though that one test is ported correctly. Nothing to port closes this — it is
 a record-keeping gap (the prior parity round kept asserting "bijection holds"
 after this file landed), tracked in `.reports/test-parity.md`.
 
-- **C-12 — no Flatpak manifest**, so `App.flatpak?`, `PREFIX = '/app'`, the
-  `' (Flatpak)'` suffix, the XDG overrides and the non-checkout branch of
-  `Settings.install_schema_dir` have never run. Upstream:
-  `studio.planetpeanut.Bobby.yml`, `.devel.yml`.
-- **C-13 — no Flatpak CI job.** Upstream: `.github/workflows/flatpak.yml`.
-- **C-14 — no vendoring script.** Upstream's `build-aux/dist-vendor.sh` feeds
-  `cargo --offline` inside the Flatpak build; the Bundler equivalent is
-  `bundle package`, and nothing in the port runs it.
 - **C-23 — two of the three ways to open a file have never been driven end to
   end.** `Gdk::FileList.new([...])` raises `NotImplementedError: TODO: in Ruby
   -> GIArgument(array/C)[interface(interface)](GFile)`, so the drop target's
@@ -150,6 +142,9 @@ after this file landed), tracked in `.reports/test-parity.md`.
 | C-21 | no declared test command ran | this round, `spec/spec_helper.rb` |
 | C-22 | the port shows an error page where upstream shows nothing | recorded as a deliberate divergence in FINDINGS.md, this round |
 | C-07 | `Sqlite::Cache` read every row of a table eagerly into a `Gio::ListStore`, against upstream's windowed `DatabaseCacheModel` | `9a4be48` — `Cache` is now itself a `Gio::ListModel`, paging 256 rows at a time and evicting beyond ±256 |
+| C-12 | no Flatpak manifest, so `App.flatpak?`, `PREFIX = '/app'`, the `' (Flatpak)'` suffix, the XDG overrides and the non-checkout branch of `Settings.install_schema_dir` had never run | this round — `studio.planetpeanut.Bobby.yml`, `studio.planetpeanut.Bobby.devel.yml` |
+| C-13 | no Flatpak CI job | this round — `.github/workflows/flatpak.yml` |
+| C-14 | no vendoring script; upstream's `build-aux/dist-vendor.sh` feeds `cargo --offline` inside the Flatpak build and nothing in the port ran Bundler's equivalent | this round — `build-aux/dist-vendor.sh` runs `bundle package` against `Gemfile.flatpak` |
 
 C-21 is closed in the half that was a defect: the dev shell's own command runs
 the suite, with `.rspec` and `spec_helper.rb` in force. The root bundle still

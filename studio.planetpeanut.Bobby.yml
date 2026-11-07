@@ -1,0 +1,83 @@
+# Ported from upstream's studio.planetpeanut.Bobby.yml.
+#
+# Upstream's manifest has one module: meson driving cargo against a release
+# tarball that `cargo vendor` has already populated, so the Flatpak build
+# itself touches no network. The port has no meson and no cargo, so it has
+# two modules: `ruby`, built from source because org.gnome.Platform carries
+# no Ruby interpreter, and `bobby`, which runs Bundler against
+# Gemfile.flatpak (see that file) instead of a buildsystem.
+#
+# Upstream's single module resolves offline because a prior `cargo vendor`
+# step (build-aux/dist-vendor.sh, ported at build-aux/dist-vendor.sh in this
+# repo) already ran against a release tarball before this manifest ever
+# sees it. The port has no release process yet to run its own vendoring
+# step against, so `bobby` below still reaches the network during the
+# build, via --share=network, same as studio.planetpeanut.Bobby.devel.yml.
+# Once a release tarball built from build-aux/dist-vendor.sh's output
+# exists, this module's source becomes that tarball,
+# `BUNDLE_GEMFILE=Gemfile.flatpak bundle install --local` replaces the
+# network-backed install below, and --share=network comes out of
+# build-options.
+app-id: studio.planetpeanut.Bobby
+command: bobby
+
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  # The app's three gem dependencies (adwaita, gtk4, sqlite3) and lib/ are
+  # installed as plain directories under /app/lib/bobby-rb rather than
+  # through `gem install`, because the `ruby` module below builds the
+  # interpreter from source with no RubyGems-managed gem home of its own.
+  - --env=GEM_HOME=/app/lib/bobby-rb/gems
+  - --env=GEM_PATH=/app/lib/bobby-rb/gems
+  - --env=RUBYLIB=/app/lib/bobby-rb/lib
+
+modules:
+  - name: ruby
+    buildsystem: simple
+    build-commands:
+      - ./configure --prefix=/app --disable-install-doc
+      - make -j${FLATPAK_BUILDER_N_JOBS:-4}
+      - make install
+    sources:
+      - type: archive
+        url: https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.9.tar.gz
+        sha256: 7bb4d4f5e807cc27251d14d9d6086d182c5b25875191e44ab15b709cd7a7dd9c
+
+  - name: bobby
+    buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
+      env:
+        BUNDLE_GEMFILE: Gemfile.flatpak
+    build-commands:
+      - bundle config set --local path 'gems'
+      - bundle config set --local without 'development test'
+      - bundle install
+      - mkdir -p /app/lib/bobby-rb
+      - cp -r lib /app/lib/bobby-rb/lib
+      - cp -r gems /app/lib/bobby-rb/gems
+      - install -Dm755 exe/bobby /app/bin/bobby
+      - install -Dm644 data/studio.planetpeanut.Bobby.desktop
+        /app/share/applications/studio.planetpeanut.Bobby.desktop
+      - install -Dm644 data/studio.planetpeanut.Bobby.metainfo.xml
+        /app/share/metainfo/studio.planetpeanut.Bobby.metainfo.xml
+      - install -Dm644 data/studio.planetpeanut.Bobby.gschema.xml
+        /app/share/glib-2.0/schemas/studio.planetpeanut.Bobby.gschema.xml
+      - install -Dm644
+        data/icons/hicolor/scalable/apps/studio.planetpeanut.Bobby.svg
+        /app/share/icons/hicolor/scalable/apps/studio.planetpeanut.Bobby.svg
+      - install -Dm644
+        data/icons/hicolor/symbolic/apps/studio.planetpeanut.Bobby-symbolic.svg
+        /app/share/icons/hicolor/symbolic/apps/studio.planetpeanut.Bobby-symbolic.svg
+    sources:
+      - type: git
+        url: https://github.com/ruby-gtk-project/Bobby-rb.git
+        branch: ruby

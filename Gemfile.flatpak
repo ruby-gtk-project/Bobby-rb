@@ -1,0 +1,20 @@
+# frozen_string_literal: true
+
+# The Gemfile the Flatpak manifests build against, as distinct from the root
+# Gemfile. The root Gemfile pulls in `gemspec`, which is correct for local
+# development, plus kettle-family, nomono, rubocop and the whole modular
+# lint/test/release stack through the eval_gemfile lines below it — none of
+# which the shipped app needs or which a Flatpak build should spend time
+# resolving. This file also pulls in `gemspec`, so it still gets the three
+# runtime dependencies declared there (adwaita, gtk4, sqlite3) and nothing
+# else, as long as the build excludes bobby-rb.gemspec's own development
+# group:
+#
+#   bundle config set --local without 'development test'
+#
+# See studio.planetpeanut.Bobby.yml, studio.planetpeanut.Bobby.devel.yml and
+# build-aux/dist-vendor.sh, which are the only things that use this file.
+
+source "https://rubygems.org"
+
+gemspec

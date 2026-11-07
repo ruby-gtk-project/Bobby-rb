@@ -1,0 +1,37 @@
+# Ported from upstream's .github/workflows/flatpak.yml. Upstream builds
+# studio.planetpeanut.Bobby.devel.yml on push to main and dev; the port
+# builds studio.planetpeanut.Bobby.devel.yml (ported at
+# studio.planetpeanut.Bobby.devel.yml in this repo) the same way, on push to
+# this port's branch, ruby, in place of upstream's main and dev.
+name: Flatpak
+
+on:
+  push:
+    branches: [ ruby ]
+
+jobs:
+  flatpak:
+    name: Flatpak
+
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+
+    strategy:
+      matrix:
+        variant:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.variant.runner }}
+
+    steps:
+    - uses: actions/checkout@v6
+    - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+      with:
+        bundle: bobby.flatpak
+        manifest-path: studio.planetpeanut.Bobby.devel.yml
+        cache-key: flatpak-builder-${{ github.sha }}
+        arch: ${{ matrix.variant.arch }}
