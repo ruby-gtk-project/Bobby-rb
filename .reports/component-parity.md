@@ -1,5 +1,15 @@
 # Component parity — Bobby
 
+**Reconfirmed again this round (port @ `d8799c0`, HEAD).** The one commit
+since the last reconciliation (`ada9290`), `d8799c0` "Reopen C-12/C-13/C-14
+as C-24", touches only `PORTING.md` and corrects it to match what this file
+already said: C-12/C-13/C-14 are not closed, they are folded into open gap
+C-24 below. `git diff ada9290 HEAD -- lib/ exe/ spec/ test/` is empty.
+`nix develop --command xvfb-run -a ruby test/drive_bobby.rb` was re-run live
+this round and still ends `474 of 474 checks passed` / `DRIVE OK`, and the
+spec suite still ends `36 examples, 0 failures`. Open-gap count is unchanged
+at 2 (C-23, C-24); see below.
+
 **Reconciled this round (port @ `314c519`, HEAD).** Everything below this
 block is the audit as written at port `9a3ce26` and is now stale in detail:
 most of the gaps it lists as open (C-07, C-08, C-10 through C-15, C-17

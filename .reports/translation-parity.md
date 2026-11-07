@@ -1,5 +1,14 @@
 # Translation parity — Bobby
 
+**Reconfirmed again this round against `HEAD` (`d8799c0`).** The one commit
+since the prior reconfirmation (`ada9290`) touches only `PORTING.md`, which
+carries no translatable string, so the 33/33 census below is unchanged.
+Re-derived live this round, not assumed: `.claude/skills/translation-parity/scripts/catalogue.rb`
+was run against a worktree of `origin/main` and against this checkout, and
+the two catalogues (189 lines each) are identical except for the header's
+role/path/ref/sha fields — every one of the 33 msgids, every `kind`, and all
+four languages' localised keywords and summaries match byte for byte.
+
 **Reconfirmed this round against `HEAD` (`ada9290`).** The one commit since
 the last reconfirmation (`314c519` → `ada9290`, "Port Flatpak packaging")
 touches `.github/workflows/flatpak.yml`, `Gemfile.flatpak`, `PORTING.md`,

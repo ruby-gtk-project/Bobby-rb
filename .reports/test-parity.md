@@ -1,5 +1,16 @@
 # Test parity — Bobby
 
+**Reconfirmed again this round against `HEAD` (`d8799c0`).** The one commit
+since the last reconfirmation (`ada9290`) touches only `PORTING.md` — `git
+diff ada9290 HEAD -- spec/ test/` is empty, so nothing below moved. Both
+runs were repeated live this round, not assumed: `nix develop --command ruby
+-e 'require "rspec/core"; exit RSpec::Core::Runner.run(["--format",
+"progress", "--require", "spec_helper", "spec"])'` → **36 examples, 0
+failures**; `nix develop --command xvfb-run -a ruby test/drive_bobby.rb` →
+**474 of 474 checks passed**, `DRIVE OK`. T-01 (below) is still open; it is
+a record-keeping gap, not a missing port, and nothing in this round's diff
+touches it.
+
 Reconfirmed and re-derived this round against current `HEAD`. The previous
 version of this report (port @ `9a3ce26`) is superseded; it predated
 `spec/bobby/sqlite/row_spec.rb`, which lands the port's bijection claim false.

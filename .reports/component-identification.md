@@ -1,5 +1,13 @@
 # Component identification — Bobby
 
+**Reconfirmed again this round against `HEAD` (`d8799c0`).** The one commit
+since the prior reconfirmation (`ada9290`), `d8799c0` "Reopen C-12/C-13/C-14
+as C-24: Flatpak manifests were never built", touches only `PORTING.md` —
+`git diff ada9290 HEAD -- lib/ exe/` is empty, so the 16-unit inventory below
+is unchanged. `nix develop --command xvfb-run -a ruby test/drive_bobby.rb`
+was re-run live this round and still ends `474 of 474 checks passed` /
+`DRIVE OK`.
+
 **Reconfirmed this round against `HEAD` (`ada9290`).** The one commit since
 the prior reconfirmation (`314c519`), `ada9290` "Port Flatpak packaging:
 manifests, CI job, and gem vendoring script", touches only

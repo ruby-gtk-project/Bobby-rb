@@ -1,5 +1,20 @@
 # Accountability ensurance — Bobby
 
+## Reconfirmed again this round (port @ `d8799c0`, HEAD)
+
+`d8799c0` ("Reopen C-12/C-13/C-14 as C-24: Flatpak manifests were never
+built") is the fix for the finding immediately below: it edits only
+`PORTING.md`, correcting the status table, the *Open gaps* section and the
+*Closed* table to stop calling C-12/C-13/C-14 closed and fold them into
+open gap C-24, matching what this file and `.reports/component-parity.md`
+had already said. `flatpak-builder` is still not on `PATH` inside `nix
+develop` this round (`which flatpak-builder` → not found) and `git diff
+ada9290 HEAD` touches no manifest, workflow or vendoring script — so the
+underlying gap is unchanged, only the ledger's honesty about it. Re-grepped
+live this round: `grep -rniE 'TODO|FIXME|not implemented|for now|in a
+future' lib/ exe/` → zero hits. `test/drive_bobby.rb` → 474/474, `DRIVE OK`;
+the spec suite → 36 examples, 0 failures. Both re-run live, not assumed.
+
 ## This round's finding, newest first (port @ `ada9290`)
 
 **Three gaps were marked "closed" in `PORTING.md` on the strength of a file
