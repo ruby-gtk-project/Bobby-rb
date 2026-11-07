@@ -1,6 +1,24 @@
 # Accountability ensurance — Bobby
 
-## This round's finding, first, because it is the most serious kind
+## This round's finding, newest first
+
+**`.reports/translation-parity.md` itself contradicted itself, and the
+accountability pass below did not catch it.** Its own opening paragraph named
+`e11c5bc` ("the byte-counted copy cutoff") as a commit it had reconciled
+against, and fifteen lines later the document asserted `grep -rn 'Copied to
+clipboard' lib/ exe/ test/` returns nothing — false, checked live this round:
+the string is at `lib/bobby/actions/win_copy_val.rb:42` and asserted at
+`test/drive_bobby.rb:1380`, both added in that same `e11c5bc`. The document
+carried a gap (C-19) as open for two more parity-report commits after the
+commit that closed it, including through a round of this very accountability
+skill that found four other false statements and missed this one in the
+sibling report sitting next to it. Corrected this round in
+`.reports/translation-parity.md`; the lesson is the same one below —
+a quantitative or boolean claim is a liability the moment a later commit can
+flip it, and "I ran this skill before" is not evidence that every document it
+touches was re-derived rather than copied forward.
+
+## The previous round's finding, because it is the same kind
 
 **A false green claim survived in three documents across a commit that made
 it false, and nothing caught it until this round.**

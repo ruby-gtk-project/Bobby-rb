@@ -171,22 +171,33 @@ $ while read s; do grep -qF -- "$s" <port literals> || echo "MISSING: $s"; done
 - **Debug leftovers** — `"item({index})"`, `"n_items()"`, `"Caching {CACHE_PAGE_SIZE} rows around {index}"`, all commented out upstream.
 - **Build-time constants** — `CARGO_PKG_HOMEPAGE` and friends, which are `App::HOMEPAGE` and `Rb::VERSION` in the port.
 
-The seventy-third is a real gap, and it is recorded in **both** ledgers as the
-skill requires — here against the message, and in `.reports/component-parity.md`
-against the `win.copy-val` action:
+**Corrected this round — the line above in this same document was wrong.**
+The seventy-third row was reported as a gap in an earlier pass of this
+document and the sentence at the top of this file even names the commit that
+closed it (`e11c5bc`, "the byte-counted copy cutoff") without the rest of the
+document being reconciled against it. Checked live, now:
+
+```
+$ grep -rn 'Copied to clipboard' lib/ exe/ test/
+lib/bobby/actions/win_copy_val.rb:42:      LONG_TITLE = 'Copied to clipboard'
+test/drive_bobby.rb:1380:        Bobby::Actions::WinCopyVal::LONG_TITLE == "Copied to clipboard"
+```
 
 | msgid | Upstream | Port | State |
 |---|---|---|---|
-| `Copied to clipboard` | `src/gtk/actions/win_copy_val.rs:52` — built as the toast title for a value at or past the 96-byte cutoff | nothing: `grep -rn 'Copied to clipboard' lib/ exe/ test/` is empty | **gap** |
-
-`text_owed`: `Copied to clipboard`
+| `Copied to clipboard` | `src/gtk/actions/win_copy_val.rs:52` — built as the toast title for a value at or past the 96-byte cutoff | `lib/bobby/actions/win_copy_val.rb:42`, asserted at `test/drive_bobby.rb:1380` | **ported** |
 
 Upstream never displays it — the `add_toast` call sits behind the same `< 96`
 test that chooses the other title — so the string is dead on upstream's side
-too. It is still one user-visible literal upstream has and the port does not,
-and if upstream ever fixes the dead branch the port will show nothing where
-upstream shows a confirmation. That makes it the port's debt, not upstream's
-licence.
+too, and it was dead in the port as well until `e11c5bc` added the constant.
+It now exists on both sides and the drive asserts its value, so this closes
+as **C-19**, matching `.reports/component-parity.md`'s reconciled header. The
+defect this round adds to the record is not in the port — it is that this
+document asserted "grep is empty" after a commit had made that false, and
+nothing caught it until this pass. That is the exact failure pattern
+`accountability-ensurance.md` exists to name, and it is cross-filed there as
+part of gap-tracking hygiene, since the accountability pass that produced the
+current `.reports/accountability-ensurance.md` did not itself catch it.
 
 Two more rows on this axis belong to the component ledger rather than to the
 message set, because the bytes match and the *rendering* does not:
@@ -220,9 +231,14 @@ would hand translators keys that match nothing. Report it upstream.
 - Domain matches: vacuous — there is no domain on either side ✓
 - Unresolved markers: 0 ✓
 - No msgid was reworded to match the port ✓
-- Source-literal text axis: **1 gap** (`Copied to clipboard`), recorded in both ledgers ✓
+- Source-literal text axis: **0 open gaps** — `Copied to clipboard` (formerly
+  C-19) is ported and asserted; reconciled this round after this document
+  itself carried the stale claim past the commit that closed it ✓
 
 **Verdict: catalogue parity is 33/33 with 0 gaps and `parity: true`. The
-source-literal text axis has one gap, `Copied to clipboard`, which is also open
-as C-19 in the component ledger. Both apps are otherwise untranslatable, which
-is upstream's defect and the port's inheritance.**
+source-literal text axis, which previously carried one gap (`Copied to
+clipboard` / C-19), is now also clean — the string was added in `e11c5bc` and
+this document's own claim that it was missing had gone stale. Both apps are
+otherwise untranslatable, which is upstream's defect and the port's
+inheritance. Two rendering-only divergences remain tracked in the component
+ledger, not here: C-17 (REAL formatting) and C-18 (byte vs character cutoff).**

@@ -71,9 +71,12 @@ reached parity under a driven run (`nix develop`, GTK 4.22.4, xvfb). The drive
 is now **474 of 474 checks passed, 16 screenshots** in `tmp/shots/`, run with
 `nix develop --command xvfb-run -a ruby test/drive_bobby.rb` → `DRIVE OK`
 (reconfirmed this round). Message parity is 34/34 byte-identical, the extra
-one being `Copied to clipboard` (C-19). Test parity is a 1 → 1 bijection, and
-the suite now runs from the command the dev shell prints: 36 examples, 0
-failures (reconfirmed this round).
+one being `Copied to clipboard` (C-19). Upstream's one test is ported 1 → 1,
+but the bijection does not hold over the full suite: `spec/bobby/sqlite/row_spec.rb`
+adds six examples for `Row.page`, a method upstream does not have, so 6 of the
+36 examples map to no upstream test (gap **T-01**, see
+`.reports/test-parity.md`). The suite runs from the command the dev shell
+prints: 36 examples, 0 failures (reconfirmed this round).
 
 ## Not started
 
@@ -98,8 +101,14 @@ What used to be in this list and is now here:
 
 ## Open gaps
 
-Four, and the figures above are this round's. Everything else the audits
-raised through C-23 is in *Closed* below, with the commit that closed it.
+Four C-series gaps, and the figures above are this round's. Everything else
+the audits raised through C-23 is in *Closed* below, with the commit that
+closed it. There is also one reporting gap, **T-01**: `spec/bobby/sqlite/row_spec.rb`'s
+six examples test `Row.page`, which upstream has no test for, so the port's
+36-example suite is not a 1 → 1 bijection with upstream's single test even
+though that one test is ported correctly. Nothing to port closes this — it is
+a record-keeping gap (the prior parity round kept asserting "bijection holds"
+after this file landed), tracked in `.reports/test-parity.md`.
 
 - **C-12 — no Flatpak manifest**, so `App.flatpak?`, `PREFIX = '/app'`, the
   `' (Flatpak)'` suffix, the XDG overrides and the non-checkout branch of
