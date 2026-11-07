@@ -9,8 +9,8 @@ out or merge the upstream ref.
 |---|---|
 | Upstream ref | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
 | Port branch | `ruby` |
-| Last parity audit | `.reports/` @ port `9a3ce26`, audited through C-23 |
-| Open gaps now | **1** — C-23. C-07 was closed in `9a4be48` and C-12/C-13/C-14 this round, after the last parity audit, so `.reports/component-parity.md` still lists all four as open; this file is the current source of truth for gap status. |
+| Last parity audit | `.reports/` @ port `947ecce`, audited through C-24 |
+| Open gaps now | **3** — C-23, T-01 (reporting-only), and **C-24**. C-12/C-13/C-14 were written up as "closed" in `ada9290`'s commit message and in an earlier version of this file, but the only verification those five files (two manifests, the CI workflow, the vendoring script, `Gemfile.flatpak`) have ever received is that they parse as YAML/bash. `flatpak-builder` is not in the dev shell and has never run against either manifest, the CI workflow has never produced an Actions run, `build-aux/dist-vendor.sh` has never been executed, and none of `App.flatpak?`, `PREFIX = '/app'`, the `' (Flatpak)'` version suffix, the XDG override path, or the non-checkout branch of `Settings.install_schema_dir` has ever executed under either flag. That is a manifest ported, unbuilt, not a closed gap — see `.reports/component-parity.md` and `.reports/accountability-ensurance.md` (gap **C-24**). C-12/C-13/C-14 are reopened below until a real `flatpak-builder` run against both manifests drives those four code branches at least once. |
 
 ## Upstream
 
@@ -101,14 +101,14 @@ What used to be in this list and is now here:
 
 ## Open gaps
 
-One C-series gap remains open; the figures above are this round's. Everything
-else the audits raised through C-23 is in *Closed* below, with the commit
-that closed it. There is also one reporting gap, **T-01**: `spec/bobby/sqlite/row_spec.rb`'s
+Three gaps are open; the figures above are this round's. Everything else the
+audits raised through C-23 is in *Closed* below, with the commit that closed
+it. There is also one reporting gap, **T-01**: `spec/bobby/sqlite/row_spec.rb`'s
 six examples test `Row.page`, which upstream has no test for, so the port's
 36-example suite is not a 1 → 1 bijection with upstream's single test even
 though that one test is ported correctly. Nothing to port closes this — it is
-a record-keeping gap (the prior parity round kept asserting "bijection holds"
-after this file landed), tracked in `.reports/test-parity.md`.
+a record-keeping gap (an earlier parity round kept asserting "bijection
+holds" after this file landed), tracked in `.reports/test-parity.md`.
 
 - **C-23 — two of the three ways to open a file have never been driven end to
   end.** `Gdk::FileList.new([...])` raises `NotImplementedError: TODO: in Ruby
@@ -118,6 +118,27 @@ after this file landed), tracked in `.reports/test-parity.md`.
   in `.reports/drive-bobby.md:56-70`. What would close it: capturing the
   `Gdk::FileList` GTK hands the `drop` handler during a synthesised drag, and
   driving `open_multiple_finish` against a crafted result.
+
+- **C-24 — C-12/C-13/C-14 were declared closed on the strength of the
+  Flatpak manifest, CI workflow and vendoring script existing and parsing,
+  not on anything building or running.** `ada9290`'s commit message and an
+  earlier version of this file called the three gaps closed; the only check
+  any of the five files involved (`studio.planetpeanut.Bobby.yml`,
+  `studio.planetpeanut.Bobby.devel.yml`, `.github/workflows/flatpak.yml`,
+  `build-aux/dist-vendor.sh`, `Gemfile.flatpak`) has ever received is
+  `ruby -ryaml` / `bash -n` syntax checking (see `.reports/accountability-ensurance.md`
+  and FINDINGS.md's own verification ledger, which already says
+  flatpak-builder was "not performed"). `flatpak-builder` is not in the dev
+  shell's `flake.nix` and has never run against either manifest; the GitHub
+  Actions workflow has never produced a run against `ruby`; the vendoring
+  script has never executed; and none of `App.flatpak?`, `PREFIX = '/app'`,
+  the `' (Flatpak)'` version suffix, the XDG override path, or the
+  non-checkout branch of `Settings.install_schema_dir` has ever executed
+  under either flag. **C-12/C-13/C-14 are therefore reopened**: the correct
+  status for all three is "manifest ported, unbuilt," not closed. What would
+  close them: adding `flatpak-builder` to the dev shell (or to CI), running
+  it against both manifests, and driving at least one Flatpak-sandboxed
+  launch so the four named branches execute once.
 
 ## Closed
 
@@ -142,14 +163,17 @@ after this file landed), tracked in `.reports/test-parity.md`.
 | C-21 | no declared test command ran | this round, `spec/spec_helper.rb` |
 | C-22 | the port shows an error page where upstream shows nothing | recorded as a deliberate divergence in FINDINGS.md, this round |
 | C-07 | `Sqlite::Cache` read every row of a table eagerly into a `Gio::ListStore`, against upstream's windowed `DatabaseCacheModel` | `9a4be48` — `Cache` is now itself a `Gio::ListModel`, paging 256 rows at a time and evicting beyond ±256 |
-| C-12 | no Flatpak manifest, so `App.flatpak?`, `PREFIX = '/app'`, the `' (Flatpak)'` suffix, the XDG overrides and the non-checkout branch of `Settings.install_schema_dir` had never run | this round — `studio.planetpeanut.Bobby.yml`, `studio.planetpeanut.Bobby.devel.yml` |
-| C-13 | no Flatpak CI job | this round — `.github/workflows/flatpak.yml` |
-| C-14 | no vendoring script; upstream's `build-aux/dist-vendor.sh` feeds `cargo --offline` inside the Flatpak build and nothing in the port ran Bundler's equivalent | this round — `build-aux/dist-vendor.sh` runs `bundle package` against `Gemfile.flatpak` |
 
 C-21 is closed in the half that was a defect: the dev shell's own command runs
 the suite, with `.rspec` and `spec_helper.rb` in force. The root bundle still
 does not resolve on Ruby 3.4 and there is still no `Gemfile.lock`; FINDINGS.md,
 *About the bindings*, has the measured reason and `.gitignore:4`.
+
+C-12, C-13 and C-14 are **not** in this table. An earlier round closed them
+here on the strength of the Flatpak manifest, CI workflow and vendoring
+script existing and parsing as YAML/bash; nothing has ever built or run them,
+so that was premature. They are reopened under **C-24** above, in *Open
+gaps*, until `flatpak-builder` actually builds one of the manifests.
 
 ## Blockers
 
