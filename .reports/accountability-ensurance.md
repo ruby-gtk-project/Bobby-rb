@@ -1,6 +1,66 @@
 # Accountability ensurance — Bobby
 
-## This round's finding, newest first
+## This round's finding, newest first (port @ `ada9290`)
+
+**Three gaps were marked "closed" in `PORTING.md` on the strength of a file
+existing, not a build or a run succeeding — this round's central finding.**
+`ada9290` ("Port Flatpak packaging: manifests, CI job, and gem vendoring
+script") says in its own commit message "Closes C-12/C-13/C-14", and
+`PORTING.md`'s *Closed* table repeats the verdict for all three, against
+`studio.planetpeanut.Bobby.yml`, `.devel.yml`, `.github/workflows/flatpak.yml`
+and `build-aux/dist-vendor.sh`. What was actually done to earn that word,
+checked live this round:
+
+```
+$ which flatpak-builder                                                   → not found
+$ ruby -ryaml -e 'YAML.load_file("studio.planetpeanut.Bobby.yml")'        → parses
+$ ruby -ryaml -e 'YAML.load_file("studio.planetpeanut.Bobby.devel.yml")'  → parses
+$ ruby -ryaml -e 'YAML.load_file(".github/workflows/flatpak.yml")'        → parses
+$ bash -n build-aux/dist-vendor.sh                                        → syntax OK
+```
+
+That is the entire verification these five files have ever received: they
+parse. `flatpak-builder` is not in the dev shell and never ran; the CI
+workflow has never produced an Actions run against `ruby`; the vendoring
+script has never been executed, so whether `bundle package` against
+`Gemfile.flatpak` actually yields a `vendor/cache` the `--share=network`-free
+build path could use is unknown; and not one of `App.flatpak?`,
+`PREFIX = '/app'`, the `' (Flatpak)'` version suffix, the XDG override path or
+the non-checkout branch of `Settings.install_schema_dir` — the four things
+`PORTING.md` itself says C-12 was blocking — has executed under either flag,
+because no Flatpak build of this app has ever been produced, by anyone, on
+either side. `FINDINGS.md`'s own "Verification actually performed" section
+already says `flatpak-builder` was "not performed, because the tools are not
+in the dev shell" — the evidence that these gaps are unverified was written
+down in the same commit that declared them closed, and the word "closed" was
+used anyway.
+
+This is not a claim that the manifests are wrong — reading them against
+upstream's two `.yml` files, they track upstream's module structure
+faithfully for what a Ruby app in a Flatpak sandbox has to do differently
+(no meson/cargo, a from-source `ruby` module, Bundler in place of
+`cargo vendor`), and that reading is real work. The defect is narrower:
+**"ported, syntactically valid, never run" and "closed" are not the same
+claim**, and the task's own runtime gate for this audit — "a component no
+check exercises is unverified, not done" — says exactly which one of the two
+survives. Filed as **C-24** in `.reports/component-parity.md`, with the open
+gap count corrected from 1 to 2 there and in this file; `test-parity.md`'s
+"what this means" table is corrected to match. `PORTING.md` is not rewritten
+by this report — that is the next commit's job, and leaving it unedited here
+is deliberate: a parity report that quietly patches the resume document it is
+auditing is doing the thing this skill exists to catch.
+
+A second, smaller thing found the same way: `.reports/component-parity.md`'s
+own header, written three commits ago (`314c519`), already said "4 open
+gaps" including C-12/13/14 at a time when `PORTING.md` at `HEAD` had already
+closed those three in `ada9290`. `PORTING.md` itself flags this staleness
+explicitly ("`.reports/component-parity.md` still lists all four as open;
+this file is the current source of truth for gap status") — so this is a
+case of the stale document being named as stale by the fresher one, not a
+silent drift, and it is why this round edits `component-parity.md` in place
+rather than leaving the correction to be inferred from a cross-reference.
+
+## The previous round's finding, because it is the same kind
 
 **`.reports/translation-parity.md` itself contradicted itself, and the
 accountability pass below did not catch it.** Its own opening paragraph named

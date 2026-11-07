@@ -1,8 +1,16 @@
 # Translation parity — Bobby
 
-**Reconfirmed this round against `HEAD` (`314c519`).** No `po/`, `.ui`,
-`.blp` or translatable-string-bearing file changed between the audited
-commit and now — the commits since (`e11c5bc`, `9a4be48`, et al.) touched
+**Reconfirmed this round against `HEAD` (`ada9290`).** The one commit since
+the last reconfirmation (`314c519` → `ada9290`, "Port Flatpak packaging")
+touches `.github/workflows/flatpak.yml`, `Gemfile.flatpak`, `PORTING.md`,
+`build-aux/dist-vendor.sh` and the two `studio.planetpeanut.Bobby*.yml`
+manifests — none of them `metainfo.xml`, `.desktop`, `Bobby.doap` or any
+`lib/`/`exe/` file carrying a user-visible string, so the 33/33 census below
+is unchanged. The data files were re-diffed against `origin/main` again this
+round with the same result as before: identical apart from the three
+screenshot-URL swaps and the appended `<release>` block. No `po/`, `.ui`,
+`.blp` or translatable-string-bearing file changed between the previously
+audited commit and now — the commits since (`e11c5bc`, `9a4be48`, et al.) touched
 `sqlite/affinity.rb`, `sqlite/cache.rb`, `sqlite/row.rb`,
 `actions/win_copy_val.rb`'s byte-counting logic, and GPLv3 headers, none of
 which add, remove or reword a user-visible string. `win_copy_val.rb`'s two

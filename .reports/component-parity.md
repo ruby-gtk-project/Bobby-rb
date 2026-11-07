@@ -13,21 +13,53 @@ open/closed status has moved. Do not read "14 open gaps" below as current.
 | | |
 |---|---|
 | Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
-| Port | `ruby` @ `314c519` (HEAD) |
-| Open gaps | **4** — C-12, C-13, C-14 (Flatpak packaging), C-23 (two of three file-open routes never driven) |
+| Port | `ruby` @ `ada9290` (HEAD; re-reconciled this round, superseding the `314c519` row below) |
+| Open gaps | **2** — C-23 (two of three file-open routes never driven), **C-24, new this round** (Flatpak manifests/CI/vendoring exist but have never been built, run, or even YAML/script-linted by a tool, so "closed" in PORTING.md overstates what happened) |
 | Driven | yes, live this round — `nix develop --command xvfb-run -a ruby test/drive_bobby.rb` → **474 of 474 checks passed**, `DRIVE OK`, exit 0, 16 screenshots in `tmp/shots/` |
 | C-07 (lazy paging) | **closed** — `Sqlite::Cache` is a `Gio::ListModel` paging 256 rows at a time, per `9a4be48` |
 | C-17/C-18/C-19/C-20 (REAL rendering, byte cutoff, dead-toast string, toast assertions) | **closed** — reconfirmed by live grep of `test/drive_bobby.rb`: toast title, `timeout == 2`, `dismiss_all`-driven single-toast-per-repeat, and the 96-byte cutoff are all now asserted (search `d.check` near lines 1213–1378) |
 | C-21 (no runnable test command) | **closed** — `nix develop --command xvfb-run -a ruby -e '…require "spec_helper"…'` runs live, **36 examples, 0 failures** |
 
-The four still-open gaps are unglamorous but real: no Flatpak manifest exists
-so `App.flatpak?`/`PREFIX = '/app'`/the XDG override path/the non-checkout
-`Settings.install_schema_dir` branch have never executed under any test
-(C-12), there is no Flatpak CI job because there is nothing for it to build
-(C-13), no vendoring script (C-14), and the drop target's accepting branch
-plus the file dialog's cancel path remain reachable only by a real pointer
-drag or a crafted async result that nothing in the suite constructs (C-23).
-None of these four is excused anywhere in PORTING.md, FINDINGS.md or this
+## This round: C-12/C-13/C-14 are marked closed on the strength of existing, not running
+
+`ada9290` ("Port Flatpak packaging: manifests, CI job, and gem vendoring
+script") added `studio.planetpeanut.Bobby.yml`, `.devel.yml`,
+`.github/workflows/flatpak.yml`, `build-aux/dist-vendor.sh` and
+`Gemfile.flatpak`, and its own commit message says "Closes C-12/C-13/C-14";
+PORTING.md's *Closed* table repeats that verdict. What was actually checked,
+reproduced live this round:
+
+```
+$ which flatpak-builder   → not found (not in the dev shell, confirmed in FINDINGS.md's own "Not performed" list)
+$ ruby -ryaml -e 'YAML.load_file("studio.planetpeanut.Bobby.yml")'        → parses
+$ ruby -ryaml -e 'YAML.load_file("studio.planetpeanut.Bobby.devel.yml")'  → parses
+$ ruby -ryaml -e 'YAML.load_file(".github/workflows/flatpak.yml")'       → parses
+$ bash -n build-aux/dist-vendor.sh                                       → syntax OK
+```
+
+That is everything that has ever touched these five files: YAML/shell
+*syntax* is valid, and nothing else. `flatpak-builder` has never run against
+either manifest; the CI workflow has never executed (it is a file in a repo,
+not a GitHub Actions run — there is no Actions run against `ruby` to point
+at); `build-aux/dist-vendor.sh` has never been executed, so whether `bundle
+package --no-install` against `Gemfile.flatpak` actually produces a
+`vendor/cache` that `--share=network`-free `bobby` module could build from is
+untested; and none of `App.flatpak?`, `PREFIX = '/app'`, the `' (Flatpak)'`
+version suffix, the XDG override path or the non-checkout branch of
+`Settings.install_schema_dir` has executed under either flag, because no
+Flatpak build of this app has ever been produced. This is exactly the
+runtime-gate rule stated for this audit: **a component no check exercises is
+unverified, not done.** Writing a manifest is necessary for C-12/13/14 but it
+is not sufficient, and "closed" is the wrong word for it — it should read
+"manifest ported, unbuilt." **This is gap C-24**: three gaps were marked
+closed in PORTING.md on the strength of a file existing, not a build
+succeeding, and nothing in PORTING.md, FINDINGS.md or this report said so
+until now.
+
+The two remaining real gaps, both correctly still open and not excused
+anywhere: the drop target's accepting branch plus the file dialog's cancel
+path remain reachable only by a real pointer drag or a crafted async result
+that nothing in the suite constructs (C-23); and now C-24 above. None of these
 report — each is stated as still missing, with what would close it.
 
 ---

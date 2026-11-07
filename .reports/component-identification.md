@@ -1,19 +1,29 @@
 # Component identification — Bobby
 
-**Reconfirmed this round against `HEAD` (`314c519`).** The commits since
-`9a3ce26` (`e11c5bc` float rendering, `9a4be48` lazy-paging cache, the GPLv3
-headers, the kettle-jem packaging commit) touch `sqlite/affinity.rb`,
-`sqlite/cache.rb`, `sqlite/row.rb`, `sqlite/database.rb`,
-`widgets/content.rb`, `window.rb` and `application.rb`'s internals, but
-build no new widget, dialog, menu item, action, CSS class or signal
-connection — `git diff 9a3ce26 HEAD -- lib/ | grep -nE '\.new\(|connect\('`
-turns up nothing beyond what was already inventoried. The 16-unit count
-below still stands.
+**Reconfirmed this round against `HEAD` (`ada9290`).** The one commit since
+the prior reconfirmation (`314c519`), `ada9290` "Port Flatpak packaging:
+manifests, CI job, and gem vendoring script", touches only
+`.github/workflows/flatpak.yml`, `Gemfile.flatpak`, `PORTING.md`,
+`build-aux/dist-vendor.sh`, `studio.planetpeanut.Bobby.yml` and
+`studio.planetpeanut.Bobby.devel.yml` — zero files under `lib/`. It builds no
+new widget, dialog, menu item, action, CSS class or signal connection; it is
+packaging, outside the widget-tree unit of analysis this skill scans.
+`git diff 314c519 HEAD -- lib/ exe/` is empty. The 16-unit count below still
+stands, unchanged from the previous two rounds.
+
+`lib/` to upstream `src/` is re-verified 1:1 by file this round: 34 real
+upstream source files under `src/` (excluding the five pure Rust module-glue
+files `src/bobby/mod.rs`, `src/bobby/prelude.rs`, `src/gtk/mod.rs`,
+`src/gtk/actions/prelude.rs`, `src/gtk/windows/prelude.rs`, which have no
+counterpart by design) all map onto a `lib/bobby/**/*.rb` file; `find lib
+-name '*.rb' | wc -l` is 32 plus `lib/bobby.rb`/`lib/bobby/rb.rb`/
+`lib/bobby/rb/version.rb` (gem bootstrap, no upstream counterpart, not a
+widget unit).
 
 | | |
 |---|---|
 | Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
-| Port | `ruby` @ `9a3ce26f5edc81fdd0614ab6e3523ff09305463d` (re-verified unchanged through `314c519`) |
+| Port | `ruby` @ `ada9290` (re-verified unchanged through `9a3ce26` → `314c519` → `ada9290`) |
 | Declarative UI (Step 1) | **none on either side** — no `.ui`, no `.blp`, no GResource, no `.css` |
 | Units | 16 |
 

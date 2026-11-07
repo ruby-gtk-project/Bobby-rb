@@ -3,11 +3,14 @@
 Reconfirmed and re-derived this round against current `HEAD`. The previous
 version of this report (port @ `9a3ce26`) is superseded; it predated
 `spec/bobby/sqlite/row_spec.rb`, which lands the port's bijection claim false.
+Re-run live again this round at `ada9290` (one commit past `314c519`, Flatpak
+packaging only — `git diff 314c519 HEAD -- spec/ test/` is empty, so nothing
+below moved):
 
 | | |
 |---|---|
 | Upstream | `origin/main` @ `5ea72fe150c215553fce1d1d8ec2ce42e45d89ad` |
-| Port | `ruby` @ `314c519` (HEAD) |
+| Port | `ruby` @ `ada9290` (HEAD) |
 | Upstream `#[test]` functions | **1** |
 | Upstream source files with any test | **1 of 34** |
 | Port spec files | **2** — `spec/bobby/sqlite/affinity_spec.rb`, `spec/bobby/sqlite/row_spec.rb` |
@@ -116,7 +119,7 @@ Measured against the current component audit:
 |---|---|
 | a drop that actually opens a database via a synthesised `Gdk::FileList`; the file chooser's async finish path | open gap **C-23**, a recorded binding limitation |
 | `Settings::CHOICES` against the schema's `<choices>` | the port's hard-coded copy can drift from the schema where upstream's cannot — not separately gap-numbered, worth watching |
-| Flatpak-specific branches (`App.flatpak?`, `PREFIX = '/app'`) | open gaps **C-12**, **C-13**, **C-14** — there is no manifest to drive them under |
+| Flatpak-specific branches (`App.flatpak?`, `PREFIX = '/app'`) | a manifest now exists (`ada9290`) but has never been built with `flatpak-builder`, so these branches still have never executed — reopened this round as **C-24** in `.reports/component-parity.md`, since PORTING.md had marked C-12/13/14 closed on the manifest's existence alone |
 
 Coverage by file, for the record: **2 of the port's 41 `lib/` files have a
 spec** (`sqlite/affinity.rb`, `sqlite/row.rb`). `application.rb`, `window.rb`,
