@@ -65,7 +65,3 @@ group :development do
   gem "rubocop"
 end
 
-# gtk4, adwaita and sqlite3 are runtime dependencies declared in
-# bobby-rb.gemspec, which `gemspec` above pulls in. They were listed here as
-# well; a Gemfile-only declaration is invisible to CI and to anyone who
-# installs the gem, so the gemspec is the only place they belong.

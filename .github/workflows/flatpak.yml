@@ -5,9 +5,16 @@
 # this port's branch, ruby, in place of upstream's main and dev.
 name: Flatpak
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [ ruby ]
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   flatpak:
@@ -28,7 +35,7 @@ jobs:
     runs-on: ${{ matrix.variant.runner }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
       with:
         bundle: bobby.flatpak
